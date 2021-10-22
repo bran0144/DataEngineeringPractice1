@@ -90,3 +90,44 @@ survey_responses = pd.read_excel("fcc_survey_headers.xlsx",
 
 # View the names of the columns selected
 print(survey_responses.columns)
+
+# sheet_name  - keyword arg loads other sheets in a workbook (default is only 1st)
+# can use name, posiiton number (0 indexed), list of sheets
+
+all_responses = pd.DataFrame()
+
+for sheet_name, frame in survey_responses.items():
+    frame["Year"] = sheet_name
+    all_responses = all_responses.append(frame)
+print(all_responses.Year.unique())
+
+# Create df from second worksheet by referencing its name
+responses_2017 = pd.read_excel("fcc_survey.xlsx",
+                               sheet_name="2017")
+
+# Graph where people would like to get a developer job
+job_prefs = responses_2017.groupby("JobPref").JobPref.count()
+job_prefs.plot.barh()
+plt.show()
+
+# Load all sheets in the Excel file
+all_survey_data = pd.read_excel("fcc_survey.xlsx",
+                                sheet_name=None)
+
+# View the sheet names in all_survey_data
+print(all_survey_data.keys())
+
+# Create an empty data frame
+all_responses = pd.DataFrame()
+
+# Set up for loop to iterate through values in responses
+for df in responses.values():
+  # Print the number of rows being added
+  print("Adding {} rows".format(df.shape[0]))
+  # Append df to all_responses, assign result
+  all_responses = all_responses.append(df)
+
+# Graph employment statuses in sample
+counts = all_responses.groupby("EmploymentStatus").EmploymentStatus.count()
+counts.plot.barh()
+plt.show()
