@@ -131,3 +131,166 @@ for df in responses.values():
 counts = all_responses.groupby("EmploymentStatus").EmploymentStatus.count()
 counts.plot.barh()
 plt.show()
+
+# dtype={} creates a dictionary of data types to import
+# pandas automatically loads TRUE/FALSE as floats
+# NA gets coded as true
+# Does not deal with yes/no
+# use true_values=["Yes"] false_values=["No"]
+
+# Set dtype to load appropriate column(s) as Boolean data
+survey_data = pd.read_excel("fcc_survey_subset.xlsx",
+                            dtype={"HasDebt":bool})
+
+# View financial burdens by Boolean group
+print(survey_data.groupby("HasDebt").sum())
+
+# Load file with Yes as a True value and No as a False value
+survey_subset = pd.read_excel("fcc_survey_yn_data.xlsx",
+                              dtype={"HasDebt": bool,
+                              "AttendedBootCampYesNo": bool},
+                              true_values=["Yes"],
+                              false_values=["No"])
+
+# View the data
+print(survey_subset.head())
+
+# Datetimes are loaded as objects(strings)
+# parse_dates (not dtypes) to use datetimes
+# can take col names or numbers or a list to combine
+# can add a list within the list
+# date_cols = ["Part1StartTime", "Part1EndTime", [["Part2StartDate", Part2Starttime]]]
+# if you pass a dictionary you can name the columns too
+# pd.to_datetime() to parse non-standard date formats
+# format: with a string rep of format  strftime.org (has full list)
+# "%m%d%Y %H:%M:%S"
+
+# Load file, with Part1StartTime parsed as datetime data
+survey_data = pd.read_excel("fcc_survey.xlsx",
+                            parse_dates=["Part1StartTime"])
+
+# Print first few values of Part1StartTime
+print(survey_data.Part1StartTime.head())
+
+# Create dict of columns to combine into new datetime column
+datetime_cols = {"Part2Start": ["Part2StartDate", "Part2StartTime"]}
+
+
+# Load file, supplying the dict to parse_dates
+survey_data = pd.read_excel("fcc_survey_dts.xlsx",
+                            parse_dates=datetime_cols)
+
+# View summary statistics about Part2Start
+print(survey_data.Part2Start.describe())
+
+# Parse datetimes and assign result back to Part2EndTime
+survey_data["Part2EndTime"] = pd.to_datetime(survey_data["Part2EndTime"], 
+                                             format="%m%d%Y %H:%M:%S")
+
+# Print first few values of Part2EndTime
+print(survey_data["Part2EndTime"].head())
+
+# Create a DB engine - sqlalchemy create_engine()
+# needs string url of db to connect to  sqlite:///filename.db
+# pd.read_sql(query (or table name), engine)
+# from sqlalchemy import create_engine
+
+# Import sqlalchemy's create_engine() function
+from sqlalchemy import create_engine
+
+# Create the database engine
+engine = create_engine("sqlite:///data.db")
+
+# View the tables in the database
+print(engine.table_names())
+
+# Load hpd311calls without any SQL
+hpd_calls = pd.read_sql("hpd311calls", engine)
+
+# View the first few rows of data
+print(hpd_calls.head())
+
+# Create the database engine
+engine = create_engine("sqlite:///data.db")
+
+# Create a SQL query to load the entire weather table
+query = """
+SELECT * 
+  FROM "weather";
+"""
+
+# Load weather with the SQL query
+weather = pd.read_sql(query, engine)
+
+# View the first few rows of data
+print(weather.head())
+
+# SQL comparisons =, >, >=, <, <=, <> (not equal to)
+#  = is also used for string matching (case sensitive)
+
+# Create query for records with max temps <= 32 or snow >= 1
+query = """
+SELECT *
+  FROM weather
+  WHERE tmax <= 32
+  OR snow >= 1;
+"""
+
+# Query database and assign result to wintry_days
+wintry_days = pd.read_sql(query, engine)
+
+# View summary stats about the temperatures
+print(wintry_days.describe())
+
+# SELECT DISTINCT - gives unique values
+# to remove duplicates: SELECT DISTINCT * FROM [table]
+# SELECT AVG(tmax) FROM weather;
+# SELECT COUNT(*) FROM.. can use COUNT DISTINCT (colname)
+# GROUP BY (column)
+
+# Create query for unique combinations of borough and complaint_type
+query = """
+SELECT DISTINCT borough, 
+       complaint_type
+  FROM hpd311calls;
+"""
+
+# Load results of query to a data frame
+issues_and_boros = pd.read_sql(query, engine)
+
+# Check assumption about issues and boroughs
+print(issues_and_boros)
+
+# Create query to get call counts by complaint_type
+query = """
+SELECT complaint_type, 
+     COUNT(*)
+  FROM hpd311calls
+  GROUP BY complaint_type;
+"""
+
+# Create data frame of call counts by issue
+calls_by_issue = pd.read_sql(query, engine)
+
+# Graph the number of calls for each housing issue
+calls_by_issue.plot.barh(x="complaint_type")
+plt.show()
+
+# Create query to get temperature and precipitation by month
+query = """
+SELECT month, 
+        MAX(tmax), 
+        MIN(tmin),
+        SUM(prcp)
+  FROM weather 
+ GROUP BY month;
+"""
+
+# Get data frame of monthly weather stats
+weather_by_month = pd.read_sql(query, engine)
+
+# View weather stats by month
+print(weather_by_month)
+
+
+
