@@ -292,5 +292,88 @@ weather_by_month = pd.read_sql(query, engine)
 # View weather stats by month
 print(weather_by_month)
 
+# JOIN ... ON  hpd311calls.created_date=weather.date
+# SELECT hpd311calls.borough,
+# COUNT(*),
+# boro_census.total_pop,
+# boro_census.housing
+# FROM hpd311calls
+# JOIN boro_census
+# ON hpd311calls.borough= boro_census.borough
+# GROUP BY hpd311calls.borough;
 
+# Query to get heat/hot water call counts by created_date
+query = """
+SELECT hpd311calls.created_date, 
+       COUNT(*)
+  FROM hpd311calls 
+  WHERE hpd311calls.complaint_type = 'HEAT/HOT WATER'
+  GROUP BY hpd311calls.created_date;
+"""
+
+# Query database and save results as df
+df = pd.read_sql(query, engine)
+
+# View first 5 records
+print(df.head())
+
+try:
+    # Load the JSON without keyword arguments
+    df = pd.read_json("dhs_report_reformatted.json")
+    
+    # Plot total population in shelters over time
+    df["date_of_census"] = pd.to_datetime(df["date_of_census"])
+    df.plot(x="date_of_census", 
+            y="total_individuals_in_shelter")
+    plt.show()
+    
+except ValueError:
+    print("pandas could not parse the JSON.")
+
+api_url = "https://api.yelp.com/v3/businesses/search"
+
+# Get data about NYC cafes from the Yelp API
+response = requests.get(api_url, 
+                headers=headers, 
+                params=params)
+
+# Extract JSON data from the response
+data = response.json()
+
+# Load data to a data frame
+cafes = pd.DataFrame(data["businesses"])
+
+# View the data's dtypes
+print(cafes.dtypes)
+
+# Create dictionary to query API for cafes in NYC
+parameters = {"term": "cafe",
+          	  "location": "NYC"}
+
+# Query the Yelp API with headers and params set
+response = requests.get(api_url,
+                params=parameters,
+                headers=headers)
+
+# Extract JSON data from response
+data = response.json()
+
+# Load "businesses" values to a data frame and print head
+cafes = pd.DataFrame(data["businesses"])
+print(cafes.head())
+
+# Create dictionary that passes Authorization and key string
+headers = {"Authorization": "Bearer {}".format(api_key)}
+
+# Query the Yelp API with headers and params set
+response = requests.get(api_url,
+        headers=headers,
+        params=params)
+
+# Extract JSON data from response
+data = response.json()
+
+# Load "businesses" values to a data frame and print names
+cafes = pd.DataFrame(data["businesses"])
+print(cafes.name)
 
