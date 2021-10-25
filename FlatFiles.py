@@ -377,3 +377,86 @@ data = response.json()
 cafes = pd.DataFrame(data["businesses"])
 print(cafes.name)
 
+# pandas.io.json submodule for reading nested data
+# json_normalize() - returns a flattened data frame
+# attribute.nestedattribute
+# sep - argument to select a separator
+# bookstores = json_normalize(data["businesses"], sep="_")
+# json_normalize - record_path=stirng or list of string attributes to nested data
+# meta - list of other attributes to load into data frame
+# meta_prefix can be specified
+# df=json_normalize(data=["businesses"],
+#       sep="_",
+#       record_path="categories",
+#       meta=["name",
+#               "alias",
+#               ["coordinates", "latitude"],
+#               ["coordinates", "longitude"]],
+#               meta_prefix="biz_")
+
+# Load json_normalize()
+from pandas.io.json import json_normalize
+
+# Isolate the JSON data from the API response
+data = response.json()
+
+# Flatten business data into a data frame, replace separator
+cafes = json_normalize(data["businesses"],
+             sep="_")
+
+# View data
+print(cafes.head())
+
+# Load other business attributes and set meta prefix
+flat_cafes = json_normalize(data["businesses"],
+                            sep="_",
+                    		record_path="categories",
+                    		meta=["name", 
+                                  "alias",  
+                                  "rating",
+                          		  ["coordinates", "latitude"], 
+                          		  ["coordinates", "longitude"]],
+                    		meta_prefix="biz_")
+
+
+
+
+
+# View the data
+print(flat_cafes.head())
+
+# append() dataframe method to add rows from one data frame to another
+# df1.append(df2)
+# ingore_index=True to renumber the rows
+# params["offset"] = 20
+# next_results=requests.get(api_url, headers=headers, params=params)
+# bookstores=first_20_bookstores.append(next_20_bookstores, ignore_index=True)
+# merge() - pandas function and a data frame method
+# key columns must be same data type
+# merged = call_counts.merge(weather, left_on="created_date", right_on="date")
+# default will only return vlaues that are in both datasets
+
+# Add an offset parameter to get cafes 51-100
+params = {"term": "cafe", 
+          "location": "NYC",
+          "sort_by": "rating", 
+          "limit": 50,
+          "offset": 50}
+
+result = requests.get(api_url, headers=headers, params=params)
+next_50_cafes = json_normalize(result.json()["businesses"])
+
+# Append the results, setting ignore_index to renumber rows
+cafes = top_50_cafes.append(next_50_cafes, ignore_index=True)
+
+# Print shape of cafes
+print(cafes.shape)
+
+# Merge crosswalk into cafes on their zip code fields
+cafes_with_pumas = cafes.merge(crosswalk, left_on="location_zip_code", right_on="zipcode")
+
+# Merge pop_data into cafes_with_pumas on puma field
+cafes_with_pop = cafes_with_pumas.merge(pop_data, on="puma")
+
+# View the data
+print(cafes_with_pop.head())
