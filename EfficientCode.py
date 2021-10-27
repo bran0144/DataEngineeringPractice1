@@ -265,3 +265,94 @@ z_scores = (hps - hp_avg)/hp_std
 poke_zscores2 = [*zip(names, hps, z_scores)]
 print(*poke_zscores2[:3], sep='\n')
 
+# Pandas efficiency
+# .iloc method may not be very efficient
+# iterrows() returns a tuple of the index of each row and the data in each row
+
+# Print the row and type of each row
+for row_tuple in pit_df.iterrows():
+    print(row_tuple)
+    print(type(row_tuple))
+
+# Create an empty list to store run differentials
+run_diffs = []
+
+# Write a for loop and collect runs allowed and runs scored for each row
+for i,row in giants_df.iterrows():
+    runs_scored = row['RS']
+    runs_allowed = row['RA']
+    
+    # Use the provided function to calculate run_diff for each row
+    run_diff = calc_run_diff(runs_scored, runs_allowed)
+    
+    # Append each run differential to the output list
+    run_diffs.append(run_diff)
+
+giants_df['RD'] = run_diffs
+print(giants_df)
+
+# itertuples() - often more efficient than iterrows()
+# iterrows means that you need to use [] to access values
+# row_tuple[1]['Team']
+# itertuples() returns a namedtuple
+# fields are accessible using attribute lookup (using . notation)
+# print(row_namedtuple.Index)
+# print(row_namedtuple.Team)
+
+# Loop over the DataFrame and print each row's Index, Year and Wins (W)
+for row in rangers_df.itertuples():
+  i = row.Index
+  year = row.Year
+  wins = row.W
+  
+  # Check if rangers made Playoffs (1 means yes; 0 means no)
+  if row.Playoffs == 1:
+    print(i, year, wins)
+
+run_diffs = []
+
+# Loop over the DataFrame and calculate each row's run differential
+for row in yankees_df.itertuples():
+    
+    runs_scored = row.RS
+    runs_allowed = row.RA
+
+    run_diff = calc_run_diff(runs_scored, runs_allowed)
+    
+    run_diffs.append(run_diff)
+
+# Append new column
+yankees_df['RD'] = run_diffs
+print(yankees_df)
+
+# pandas .apply() method
+# similar to map() it takes a function and applies it to entire DF
+# must specify an axis (0 = columns, 1=rows)
+# can be used with anonymous functions or lambdas
+# baseball_df.apply(lambda row: calc_fun_diff(row['RS'], row['RA']), axis=1)
+# can be saved into a variable
+
+# Gather total runs scored in all games per year
+total_runs_scored = rays_df[['RS', 'RA']].apply(sum, axis=1)
+print(total_runs_scored)
+
+# Convert numeric playoffs to text by applying text_playoffs()
+textual_playoffs = rays_df.apply(lambda row: text_playoffs(row['Playoffs']), axis=1)
+print(textual_playoffs)
+
+# Display the first five rows of the DataFrame
+print(dbacks_df.head())
+
+# Create a win percentage Series 
+win_percs = dbacks_df.apply(lambda row: calc_win_perc(row['W'], row['G']), axis=1)
+print(win_percs, '\n')
+
+# Append a new column to dbacks_df
+dbacks_df['WP'] = win_percs
+print(dbacks_df, '\n')
+
+# Display dbacks_df where WP is greater than 0.50
+print(dbacks_df[dbacks_df['WP'] >= 0.50])
+
+
+
