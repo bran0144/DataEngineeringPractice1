@@ -1,0 +1,23 @@
+curl - client for URL's
+    transfers data to and from a server
+    used to download data http and ftp servers
+    curl [option flags] [URL]
+    -O (saves the file with its original name)
+    -o (saves file with new file name)
+    curl -O https://website.com/datafilename.txt
+    curl -o newname.txt https://website.com/datafilename.txt
+    * - wildcard lets you download multiple files with similar names
+        curl -O https://website.com/datafilename*.txt
+        (starts with datafilename and ends with txt)
+    Globbing parser - lets you be more specific in downloading
+        curl -O https://webiste.com/datafilename[001-100].txt
+        To select only 10 files from inside group:
+        curl -O https://webiste.com/datafilename[001-100:10].txt
+    -L - redirects url if a 300 error occurs
+    -C resumes previous file transer if it times out before completion
+    Option flags come before the URL
+
+Wget - native to Linux - used to download from http and htp
+    more multipurpose than curl (can download multiple files recursively)
+    
+
