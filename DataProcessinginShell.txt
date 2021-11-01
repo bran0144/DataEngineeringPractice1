@@ -16,8 +16,69 @@ curl - client for URL's
     -L - redirects url if a 300 error occurs
     -C resumes previous file transer if it times out before completion
     Option flags come before the URL
+    can be used for both downloading and uploading files from 20+ protocols
 
-Wget - native to Linux - used to download from http and htp
+
+wget - native to Linux - used to download from http, https, sftp and ftp
     more multipurpose than curl (can download multiple files recursively)
-    
+    which wget - will return location of where wget is installed
+    wget [option flags] [URL]
+    -b - let download go in the background
+    -q turn off teh Wget output
+    -c resume broken download
+    wget -bqc https://webiste.com/datafilename.txt
+    cat wget-log prints out log file
+    Can save a list of file locations in a text file
+    -i downloads from the URL locations stored in the file url_list.txt
+    wget -i url_list.txt
+    If you need to use other option flags, they should go before -i
+    Download constraints (default is bytes per second) --limit-rate
+    wget --limit-rate=200k -i url_list.txt
+    --wait
+    For small files, better to do a mandatory pause time (in seconds) between downloads
+    wget --wait=2.5 i url_list.txt
+    easier to handle multiple file downloads
+    Can handle various file formats (directory, HTML page)
+
+csvkit - data processing and cleaning on CSV files  
+    can be installed using pip (built by Python)
+- in2csv is a useful command in csvkit suite that converts tabular data files, like text or Excel, into CSV
+- in2csv has docs and logs for the command line in2csv —help or in2csv -h    does the logs
+- in2csv (file you want to convert) > file you want to name it
+- in2csv SpotifyData.xlsx > SpotifyData.csv
+- in2csv SpotifyData.xlsx only prints the 1st sheet to console and doesn’t save
+—names or -n option to print all sheet names
+—sheet option the sheet name to print that specific sheet
+- in2csv SpotifyData.xlsx —sheet “Worksheet_popularity” >
+Spotify_Popularity.csv
+ 
+- can run ls to make sure that the new file is created
+- csvlook renders CSV in the command line in markdown compatible fixed width format
+- csvlook -h for documentation
+- csvstat - similar describe method prints descriptive summary statistics for each column
+-csvstat -h for docs
+-csvstat Spotify_Popularity.csv 
+
+Filtering data
+can filter by row csvgrep filters by row using exact match, pattern matching or regex
+Must be paired with -m, -r, or -f
+-m followed by the exact row value
+-r followed by regex partner
+-f followed by path to a file
+Csvgrep -c “track_id” -m KJNIEUN Spotify.csv
+Will return entire row or rows that matches
+or by column - csvcut - filters and truncates using columns name or position
+csvcut -h for docs
+Use —name or -n to print out all column names and their positions
+csvcut -n Spotify.csv     will list the names and positions
+- csvcut -c 1 Spotify.csv - returns the first column of data by position
+- csvcut -c “track_id” Spotify.csv - return the first column of data by name
+- to return multiple columns:
+- csvcut -c 2,3 Spotify.csv returns column 2 and 3 (no spaces between numbers)
+- can do the same with names, need double quotes and no spaces
+
+Stacking data
+-
+
+
 
