@@ -48,8 +48,8 @@ csvkit - data processing and cleaning on CSV files
 - in2csv SpotifyData.xlsx > SpotifyData.csv
 - in2csv SpotifyData.xlsx only prints the 1st sheet to console and doesn’t save
 —names or -n option to print all sheet names
-—sheet option the sheet name to print that specific sheet
-- in2csv SpotifyData.xlsx —sheet “Worksheet_popularity” >
+—-sheet option the sheet name to print that specific sheet
+- in2csv SpotifyData.xlsx —-sheet “Worksheet_popularity” >
 Spotify_Popularity.csv
  
 - can run ls to make sure that the new file is created
@@ -78,7 +78,105 @@ csvcut -n Spotify.csv     will list the names and positions
 - can do the same with names, need double quotes and no spaces
 
 Stacking data
--
+-csvstack - stacks up rows from two or more csv files - helpful for overcoming problem of 
+API restrictions on how many rows to download
+-must have same schema
+- csvstack Spotify_Rank6.csv Spotify_Rank7.csv > Spotify_AllRanks.csv
+- to keep a record of the source of the data row use -g  (group)
+- csvstack -g "Rank6","Rank7" Spotify_Rank6.csv Spotify_Rank7.csv > Spotify_AllRanks.csv
+- adds a new column named "group" (default) that has the group name added to it for each row
+- can add a new column name:
+- csvstack -g "Rank6","Rank7" -n "source" Spotify_Rank6.csv Spotify_Rank7.csv > Spotify_AllRanks.csv
 
+Chaining commands:
+; - links commands together and runs sequentially
+- csvlook Spotify.csv; csvstat Spotify.csv
+&& - links commands together, but will only run 2 one if the 1st succeeds
+> - redirect - redirects output from 1st command into the location in the 2nd
+| - pipe - uses the ouput of the 1st comand as the input of the 2nd
+csvcut -c "track_id","danceability" Spotify_Popularity.csv | csvlook
 
+Pulling data from a database
+sql2csv - lets you access most of the popular sql types
+-h for help
+Sql2csv —db “sqlite:///SpotifyDatabase.db" \
+—query “SELECT * FROM SpotifyPopularity” \
+> Spotify_Popularity.csv
 
+Use \ at end of each line for readability
+Shell scripts have a style guide line limit of 80 char
+—db how to connect to database “string”
+Postgres and mysql don’t need the .db at the end
+—query passes in the sql query “string”
+Need to use sql syntax compatible with the db you are queuing
+Query string must be one line, no matter how long
+Without redirect (>) it will simply print out in the console log
+
+csvsql lets you use sql like commands on a csv file without needing to set up a local database
+Creates an temporary in memory sql database that hosts the files being processed
+Suitable for small or medium only (and only simple queries)
+csvsql —query “SELECT * FROM Spotify LIMIT 1” \
+Data/Spotify.csv > OneSongFile.csv
+Need to give exact location of file, relative to current file directory
+Can | to csvlook to get a pretty print
+Can > to save to a new csv
+Can do joins and apply to more than one csv file at a time
+Csvsql —query “SELECT * FROM file_a INNER JOIN to file_b..”
+file_a.csv file_b.csv
+Use space to separate csv files, not a comma
+Order matters, first file mentioned in sql query must go first
+
+Csvsql can upload and push data back to db
+csvsql —db “sqlite:///SpotifyDatabase.db" —insert “Spotify_MusicAttributes.csv”
+Upload a local file into and existing sql db
+—insert creates the table and inserts the data into the table
+Makes best guess at what schema of table should be
+—no-inference - disables type inference - will treat each column as text
+—no-constraints - generates a schema without length limits or null checks
+
+Running python on the command line
+man python - prints the manual
+-V or —version to check your version
+which python - will tell you where your python is running )usr/bin)
+python  lets you start an interactive python window
+exit() will end the session
+Can create a python file (.py)
+
+echo “print(‘hello world’)” > hello_world.py
+Instantiates a new file and populates the file with the command
+cat hello_world.py prints file content
+Need to be in same file directory as script we created
+Can run the file with:
+python hello_world.py
+
+Pip - package manager
+Pip list displays the current python packages in env
+pip install library name
+Automatically downloads decencies and latest version 
+can specify version
+pip install scikit-learn==0.19.2
+To update version and take care of any dependencies:
+Pip install —upgrade scikit-learn
+Can install multiple libraries at same time
+Can save the versions and packages in requirements.txt
+Pip install -r requirements.txt
+
+Cron
+Schedulers run jobs on a predetermined schedule
+Automates our data pipeline
+Airflow, Luigi, Rundeck (other options)
+Cron is free, all CL, and native to macOS and Unix
+Time-based job scheduler
+Can automate bash scripts or python
+Crontab - central file to keep track of all files, when to run them, & other instructions
+crontab -l to see what’s in file
+man crontab for manual
+Can alter using nano, VIM, etc.
+Or you can echo directly into it
+echo “*** python createmodel.py” | crontab
+Most frequent schedule is one every minute
+Five time component locations *****
+(minute 0-59) * (hours 0-23) *(days of month 1-31)*(mon 1-12 or jan feb) * (day of week 0-6 or sun mon)
+is a wildcard which means always on
+***** means this job will run every minute, every hour, everyday, etc.
+https://crontab.guru for directions
