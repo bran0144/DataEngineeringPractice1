@@ -1,0 +1,111 @@
+Bash scripting
+Allows you to save and execute multiple commands
+Some commands to know:
+(e)grep - filters input based on regex pattern matching
+cat - concatenates file contents line by line
+tail / head - gives the first or last lines -n (number)
+wc - word count -w line count -l
+sed - string replacement using regex pattern matching
+Use regex101.com to test regex expressions
+grep ‘p’ fruits.txt
+[] - make a set like ‘[un]’ (look for these letters) - would return anything with a u or n inside
+^ - makes an inverse set (not these letters)
+| - pipe - lets you run multiple commands sequentially
+sort | uniq -c
+Sort - sorts alphabetically (or numerically)
+Uniq - does a distinct count
+If we wanted the top n fruits:
+cat new_fruits.txt | sort | uniq -c | head -n 3
+
+cat two_cities.txt | egrep ‘Sydney Carton|Charles Darnay’ | wc -l
+
+
+Bash script anatomy:
+#!  (she bang or hash bang) usually begins with this on its own line
+usually followed by /usr/bash like this: #!/usr/bash
+command which bash will tell you the path to your bash if its not in usr/bash
+file extension for bash scripts : .sh
+to run: bash script_name.sh
+if you have #! as the first line then you can just run it with: ./script_name.sh
+Example: (saved as eg.sh)
+#!/usr/bash
+echo "Hello world"
+echo "Goodbye"
+
+Each line of code can be a shell command and you can chain them together with pipes
+Example:
+#!/usr/bash
+cat animals.txt | cut -d " " -f 2 | sort | uniq -c
+
+Exercise:
+#!/bin/bash
+
+# Create a single-line pipe
+# Cuts the relavant field (-f) with the delimter (-d ",")
+# tail -n +2 just keeps the headers from being aggregated, then sorts and counts the unique items
+cat soccer_scores.csv | cut -d "," -f 2 | tail -n +2 | sort | uniq -c
+
+
+#!/bin/bash
+
+# Create a sed pipe to a new file (replaces string with new string)
+cat soccer_scores.csv | sed 's/Cherno/Cherno City/g' | sed 's/Arda/Arda United/g' > soccer_scores_edited.csv
+
+Standard Streams
+STDIN - standard input (a stream of data into the program)
+STDOUT - standard output (stream going out)
+STDERR - standard error (errors in your program)
+not always clear as they tend to all appear in the terminal
+cat animals.txt | cut -d " " -f 2 | sort | uniq -c
+stdout of cat becomes stdin of cut, which becomes the stdout for the sort, etc.
+when pipe finishes, the last stdout gets printed in termal (the count from uniq)
+cat sports.txt 1> new_sports.txt  (takes data from file and writes stdout to a new file)
+
+Arguments
+bash can take arguments to be used inside by adding a sapce after the script execution call
+ARGV - array of all the arguments given to the program
+$ - each argument can be accessed with $    $1 (first argument) $2 (second argument)
+$@ $* give all the arguments in ARGV
+$# gives the length (number) of arguments
+#!/usr/bash
+echo $1     (prints first argument)
+echo $2     (prints second argument)
+echo $@     (prints all the arguments)
+echo "There are " $# "arguments"    (prints number of arguments)
+
+
+# Echo the first ARGV argument
+echo $1
+
+# Cat all the files
+# Then pipe to grep using the first ARGV argument
+# Then write out to a named csv using the first ARGV argument
+cat hire_data/* | grep "$1" > "$1".csv
+
+Variables
+assign notation =
+var1="Moon"
+variables can be referenced with $ notation ($ is necessary for bash to realize it's a variable)
+echo $var1
+Beware of adding spaces around the = 
+"" '' can mean difference things when creating variables and printing
+''  interpreted literally
+""  interpreted literally EXCEPT using $ and ```
+``` creates and shell within a shell - sends whatever is between `` out to a new shell and takes the results
+    back into the variable
+now_var='NOW'
+now_var_doublequote="$now_var"      would return $now_var if you put '' here instead of ""
+echo $now_var_doublequote
+this returns NOW
+
+Date 
+date  -returns current date and time returned as a string
+rightnow_doublequote="The date is `date`."
+echo $rightnow_doublequote
+this works correctly becuase of backticks 
+
+Another way to do this is with ()$ notation
+rightnow_parentheses="The date is $(date)."
+echo $rightnow_parentheses
+
+`` ia the older way of doing things, so good for backward compatibility, but ()$ is the more modern way
