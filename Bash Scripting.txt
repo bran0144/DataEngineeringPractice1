@@ -109,3 +109,296 @@ rightnow_parentheses="The date is $(date)."
 echo $rightnow_parentheses
 
 `` ia the older way of doing things, so good for backward compatibility, but ()$ is the more modern way
+
+Exercises:
+# Create the required variable
+yourname="Sam"
+
+# Print out the assigned name (Help fix this error!)
+echo "Hi there "$yourname", welcome to the website!"
+
+Numbers in Bash
+Cannot natively do arithmetic in shell (like you can in R or Python)
+expr utility program that lets you do numeric calculations
+expr 1 + 4
+BUT, it cannot handle decimal places
+bc (basic calculator) - opens a calculator so that you can enter 5+7 and when you are done enter quit
+To use bc without having to open the calculator:
+Echo “7 + 7.5” | bc
+Scale argument - lets you specify how many decimal places
+Echo “scale=3; 10 / 3 “ | bc
+Need to use ; 
+Do not use spaces around the equals sign if you assign numbers to a variable
+dog_name=‘Roger’
+dog_age=6
+Echo “My dog’s name is $dog_name and he is $dog_age years old.”
+Could also use (()) notation instead of expr or bc
+echo $((5 + 7)) this uses expr under the hood, so no decimals
+Shell within a shell is very useful for calculations
+model1=87.65
+model2=89.20
+echo “The total score is $(echo “$model1 + $model2” | bc)”
+Echo “The average score is $(echo “($model1 + $model2) / 2 | bc)”
+
+Exercises:
+# Get first ARGV into variable
+temp_f=$1
+
+# Subtract 32
+temp_f2=$(echo "scale=2; $temp_f - 32" | bc)
+
+# Multiply by 5/9 and print
+temp_c=$(echo "scale=2; $temp_f2 * 5 / 9" | bc)
+
+# Print the celsius temp
+echo $temp_c 
+
+when calling it: bash script.sh 108
+
+# Create three variables from the temp data files' contents
+temp_a=$(cat temps/region_A)
+temp_b=$(cat temps/region_B)
+temp_c=$(cat temps/region_C)
+
+# Print out the three variables
+echo "The three temperatures were $temp_a, $temp_b, and $temp_c"
+
+Arrays
+numberical uindexed structure (lists in python, vectors in R)
+To construct an array without any elements
+    declare -a my_first_array
+To construct one with elements:
+    my_first_array=(1 2 3)
+    no commas to separate, and no spaces around =
+To return all array elements, index into array with @
+    echo ${my_array[@]}         need {} around array name and [] @ for elements
+The length of array is returned by adding the # symbol at fron of call to array:
+    echo ${#array[@]}
+Access elements using [] - zero indexed
+    echo ${my_array[2]}
+To change elements by their index:
+    my_array[0]=999 - don't use the $ notation for overwriting a single element
+    echo ${my_array[0]} - to see if it worked
+Slicing:
+    array[@]:N:M    N is the starting index M is is how many elements to return
+    echo ${my_array[@]:3:2}     start at the fourth element and return 2 elements
+Appending to arrays:
+    my_array+=(10)  adds the number 10 to the end of the array    
+    If you forget the () it just concatenates 10 on the end of the first element
+
+Associative arrays:  - uses key value pairs not numerical indexes (like a python dictionary)
+To declare without adding elements:
+declare -A city_details
+city_details=([city_name]=“New York” [population]=1400000)
+To declare and add elements at same time:
+declare -A city_details=([city_name]=“New York” [population]=1400000)
+To index using a key to return a value:
+echo ${city_details[city_name]}
+To return all the keys:
+Echo ${!city_details[@]} 
+
+If statements:
+If [ condition ]; then some code 
+else some other code
+fi (which means finish)
+Two tips:
+You need spaces between [] and conditional elements inside
+You need the semicolon after the ]
+x=“Queen”
+if [ $x == “king” ]; then
+echo “$x is a King!”
+else
+echo “$x is not a King!”
+fi 
+!= means not equal
+Can use (()) instead of [] for numerical statements
+x=10
+if ((#x > 5)); then
+echo “$x is more than 5!”
+fi
+Can use special flags for numbers
+-eq equal to
+-ne not equal to
+-lt less than
+-le less than or equal to
+-gt greater than
+-ge greater than or equal to
+
+x=10
+if [ $x -gt 5 ]; then
+echo “$x is more than 5!”
+fi
+
+File related conditional flags: (there are many others)
+-e if the file exists
+-s if the files exists and size is greater than zero
+-r if the file exists and is readable
+-w if the file exists and is writeable
+
+&& AND 
+|| OR
+
+To chain it:
+x=10
+if [ $x -gt 5 ] && [ $x -lt 11]; then
+echo “$x is more than 5 and less than 11!”
+fi
+Or use [[]] notation:
+x=10
+if [[ $x -gt 5 && $x -lt 11 ]]; then
+echo “$x is more than 5 and less than 11!”
+fi
+
+To construct a conditional using cl programs like grep:
+if grep -q Hello words.txt; then
+echo “Hellos is inside!”
+fi
+
+Using shell within a shell:
+if $(grep -q Hello words.txt); then
+echo “Hello is inside!”
+fi
+
+
+# Extract Accuracy from first ARGV element
+accuracy=$(grep "Accuracy" $1 | sed 's/.* //')
+
+# Conditionally move into good_models folder
+if [ $accuracy -gt 90 ]; then
+    mv $1 good_models/
+fi
+
+# Conditionally move into bad_models folder
+if [ $accuracy -lt 90 ]; then
+    mv $1 bad_models/
+fi
+
+# Create variable from first ARGV element
+sfile=$1
+
+# Create an IF statement on sfile's contents
+if grep -q 'SRVM_' $sfile && grep -q 'vpt' $sfile ; then
+# Move file if matched
+mv $sfile good_logs/
+fi
+
+FOR loops in bash
+for x in 1 2 3
+do
+echo $x
+done 
+
+Brace expansion lets you crate a numeric range {}
+{Start..stop..increment} increment defaults to 1 if not specified
+For x in {1..5..2} starts at 1, finishes at 5 and increments by 2
+
+Three expression syntax (for numerical loops)
+for ((x=2;x<=4;x+=2))  
+do
+echo $x
+done
+
+x=2 (start expression) x<=4 (terminating condition) x+=2 (how to increment or decrement through the loop)
+To create iterables in place with glob expressions:
+for book in books/*
+do
+echo $book
+done
+
+Will automatically create an array to iterate over and print out the file name
+
+To call a shell within a shell:
+for book in $(ls books/ | grep -I ‘air’)
+do
+echo $book
+done
+
+WHILE loops
+Can use same comparisons from if statements (like -le)
+Can use chaining with && ||
+x=1
+while [ $x -le 3 ];
+do
+echo $x
+((x+=1))
+done
+
+Beware infinite loops
+
+Exercise:
+# Use a FOR loop on files in directory
+for file in inherited_folder/*.R
+do  
+    # Echo out each file
+    echo $file
+done
+
+# Create a FOR statement on files in directory
+for file in robs_files/*.py
+do  
+    # Create IF statement using grep
+    if grep -q 'RandomForestClassifier' $file ; then
+        # Move wanted files to to_keep/ folder
+        mv $file to_keep/
+    fi
+done
+
+Case statement
+Create clear and more efficient code when if statements would be nested
+Could use shell within a shell
+
+case ‘something’ in -selects variable to string to match against
+pattern1)
+command1;;
+pattern2)
+command2;;
+*)
+default command;;
+esac (case spelled backwards)
+
+Can use regex for pattern matching
+Air* everything starting with Air
+*hat* everything that contains hat
+
+Example:
+case $(cat $1) in
+*sydney*)
+mv $1 sydney/ ;;
+‘melbourne&|*brisbane*)
+rm $1 ;;
+*canberra*)
+mv $1 “IMPORTANT_$1” ;;
+*)
+echo “No cities found” ;;
+esac
+
+Exercise:
+# Create a CASE statement matching the first ARGV element
+case $1 in
+  # Match on all weekdays
+  Monday|Tuesday|Wednesday|Thursday|Friday)
+  echo "It is a Weekday!";;
+  # Match on all weekend days
+  Saturday|Sunday)
+  echo "It is a Weekend!";;
+  # Create a default
+  *) 
+  echo "Not a day!"
+esac
+
+# Use a FOR loop for each file in 'model_out/'
+for file in model_out/*
+do
+    # Create a CASE statement for each file's contents
+    case $(cat $file) in
+      # Match on tree and non-tree models
+      *"Random Forest"*|*GBM*|*XGBoost*)
+      mv $file tree_models/ ;;
+      *KNN*|*Logistic*)
+      rm $file ;;
+      # Create a default
+      *) 
+      echo "Unknown model in FILE" ;;
+    esac
+done
+
