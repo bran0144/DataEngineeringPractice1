@@ -542,3 +542,44 @@ test_array=(14 12 23.5 16 19.34)
 total=$(sum_array "${test_array[@]}")
 echo "The total sum of the test array is $total"
 
+Cron - scheduling scripts
+crontabs - file that contains cronjobs
+cronjobs - each tell crontab what code to run and when
+crontab -l      lists what schedules are currently programmed
+
+You can have amny cronjobs, one per line
+
+* * * * *   command to execute
+furthest left: minute (0-59)
+hour (0-23)
+day of month (1-31)
+month(1-12)
+day of week (0-6)   Sunday to Saturday (some systems use 7 for Sunday)
+
+Example
+5 1 * * * bash myscript.sh
+This would run at 1:05 am every day and month
+15 14 * * 7 bash myscript.sh
+This would run at 2:15pm every Sunday
+
+TO run multiple times per day (or at time increments):
+15,30,45 * * * *    will run every hour every day at 15, 30, 45 minute mark
+
+*/15 * * * *    runs every 15 minutes
+
+To set up a cronjob:
+crontab -e      to edit list of cronjobs
+Edit using vim or nano and add to list  
+30 1 * * * extract_data.sh      
+to save in nano:    ctrl o enter to save then ctrl x to exit
+then check crontab -l  to make sure it was added
+
+# Create a schedule for 30 minutes past 2am every day
+30 2 * * * bash script1.sh
+
+# Create a schedule for every 15, 30 and 45 minutes past the hour
+15,30,45 * * * * bash script2.sh
+
+# Create a schedule for 11.30pm on Sunday evening, every week
+30 23 * * 0 bash script3.sh
+
