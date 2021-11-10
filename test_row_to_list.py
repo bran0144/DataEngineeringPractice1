@@ -9,3 +9,14 @@ def test_for_missing_area():
 
 def test_for_missing_tab():
     assert row_to_list("1,463238,765\n") is None
+
+
+# This outputs a better human readable message compared to the default output
+def test_for_missing_area_with_message():
+    actual = row_to_list("\t293,410\n")
+    expected = None
+    message = ("row_to_list('\t293,410\n') "
+            "returned {0} instead "
+            "of {1}".format(actual, expected)
+            )
+    assert actual is expected, message
