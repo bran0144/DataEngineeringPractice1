@@ -204,3 +204,95 @@ class TestSplitIntoTrainingAndTestingSets(object):
         expected_error_msg = "Argument data_array must have at least 2 rows, it actually has just 1"
         assert exc_info.match(expected_error_msg)
 
+# TO run all tests in the tests folder:
+# cd tests
+# pytest
+# this will automatically find tests by recursing through the working dir
+# identifies tests by "test_" at beginning of module
+# -x flag - stops after first failure
+# pytest data/test_preprocessing_helpers.py     only runs tests in that file
+# Can select only a test class or unit testthrough its node ID
+# <path to test module>::<test class name>
+# <path to test module>::<test class name>::<unit test name>
+# pytest data/test_preprocessing_helpers.py::TestRowToList
+# -k flag - runs tests using keyword expressions
+# pytest -k "TestSplitIntoTrainingAndTestingSets"   - will run tests within that test class
+# Don't need to use the whole name as long as it is unique
+# Can subset with logical operators
+
+# Expected failures
+# xfail decorator - marks test as "expected to fail"
+class TestTrainModel(object):
+    @pytest.mark.xfail(reason="Using TDD, model not implemented")
+    def test_on_linear_date(self):
+        ...
+# Conditional expected failures (like from versioning or other platforms)
+# skipif decorator - marks tests to be skipped for certain reasons
+class TestConertToInt(object):
+    @pytest.mark.skipif(sys.version_info > (2,7))
+    def test_with_no_comma(self):
+        """Only runs on Python 2.7 or lower"""
+        ...
+# TO see why a test was skipped:
+# -r option (then can add what and where you want to see the reason)
+# can also add optional reason argument to xfail
+# -s added to -r will print the short reason
+# -rx will show the reason for why xfailed tests failed
+# decorators can be added to whole classes to avoid having to do it for each test
+
+# Exercises
+# Add a reason for the expected failure
+@pytest.mark.xfail(reason="Using TDD, model_test() has not yet been implemented")
+class TestModelTest(object):
+    def test_on_linear_data(self):
+        test_input = np.array([[1.0, 3.0], [2.0, 5.0], [3.0, 7.0]])
+        expected = 1.0
+        actual = model_test(test_input, 2.0, 1.0)
+        message = "model_test({0}) should return {1}, but it actually returned {2}".format(test_input, expected, actual)
+        assert actual == pytest.approx(expected), message
+        
+    def test_on_one_dimensional_array(self):
+        test_input = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError) as exc_info:
+            model_test(test_input, 1.0, 1.0)
+
+# Import the sys module
+import sys
+
+class TestGetDataAsNumpyArray(object):
+    # Add a reason for skipping the test
+    @pytest.mark.skipif(sys.version_info > (2, 7), reason="Works only on Python 2.7 or lower")
+    def test_on_clean_file(self):
+        expected = np.array([[2081.0, 314942.0],
+                             [1059.0, 186606.0],
+                             [1148.0, 206186.0]
+                             ]
+                            )
+        actual = get_data_as_numpy_array("example_clean_data.txt", num_columns=2)
+        message = "Expected return value: {0}, Actual return value: {1}".format(expected, actual)
+        assert actual == pytest.approx(expected), message
+
+# CI and code coverage
+# Uses Travis CI
+# needs .travis.yml
+# sample yml file:
+# language: python
+# python:
+#   - "3.6"
+# install:
+#   - pip install -e .
+#   - pip install pytest-cov codecov
+# script:
+#   - pytest --cov=src tests
+# after_success:
+#   - codecov
+
+# Need to install Travis CI through github
+# Give app access to necessary repos
+
+# integrates with github and Travis
+# TO get the codecov badge:
+# update yml with codecov (edited above)
+# install codecov app in github
+# get the badge from setting in the gui (cut and paste the markdown to the Readme file)
+
