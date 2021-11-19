@@ -599,3 +599,115 @@ class Employee:
 # state of the object and program remain consistent (input and output conditions should reamin the same)
 # should not throw additional excpetions
 
+# Controlling access
+# name conventions
+# starts with _  means internal, not part of public class interface
+# obj._att_name
+# used for implementation details and helper functions
+
+# __ means "private" (only starts with __ not ends) not inherited, to try to prevent name clashes
+# obj.__attr_name
+
+# __attr_name__ are only for built-in python methods
+
+# @property - custom access
+# overriding __getattr__() and __setattr__()
+
+# Exercises:
+# Add class attributes for max number of days and months
+class BetterDate:
+    _MAX_DAYS = 30
+    _MAX_MONTHS = 12
+    
+    def __init__(self, year, month, day):
+        self.year, self.month, self.day = year, month, day
+        
+    @classmethod
+    def from_str(cls, datestr):
+        year, month, day = map(int, datestr.split("-"))
+        return cls(year, month, day)
+        
+    # Add _is_valid() checking day and month values
+    def _is_valid(self):
+        return (self.day <= BetterDate._MAX_DAYS) and \
+               (self.month <= BetterDate._MAX_MONTHS)
+        
+bd1 = BetterDate(2020, 4, 30)
+print(bd1._is_valid())
+
+bd2 = BetterDate(2020, 6, 45)
+print(bd2._is_valid())
+
+# Properties
+# control attribute access, validity, etc.
+
+class Employer:
+    def __init__(self, name, new_salary):
+        self._salary = new_salary
+    @property
+    def salary(self):
+        return self._salary
+    @salary.setter
+    def salary(self, new_salary):
+        if new_salary < 0:
+           raise ValueError("Invalid Salary")
+        self._salary = new_salary 
+
+# Exercise:
+# Create a Customer class
+class Customer:
+    def __init__(self, name, new_bal):
+        self.name = name
+        if new_bal < 0:
+           raise ValueError("Invalid balance!")
+        self._balance = new_bal  
+
+class Customer:
+    def __init__(self, name, new_bal):
+        self.name = name
+        if new_bal < 0:
+           raise ValueError("Invalid balance!")
+        self._balance = new_bal  
+
+    # Add a decorated balance() method returning _balance        
+    @property
+    def balance(self):
+        return self._balance
+
+    # Add a setter balance() method
+    @balance.setter
+    def balance(self, new_bal):
+        # Validate the parameter value
+        if new_bal < 0:
+           raise ValueError("Invalid balance!")
+        self._balance = new_bal
+        print("Setter method called")
+
+# Create a Customer        
+cust = Customer("Belinda Lutz", 2000)
+
+# Assign 3000 to the balance property
+cust.balance = 3000
+
+# Print the balance property
+print(cust.balance)
+
+# MODIFY the class to use _created_at instead of created_at
+class LoggedDF(pd.DataFrame):
+    def __init__(self, *args, **kwargs):
+        pd.DataFrame.__init__(self, *args, **kwargs)
+        self._created_at = datetime.today()
+    
+    def to_csv(self, *args, **kwargs):
+        temp = self.copy()
+        temp["created_at"] = self._created_at
+        pd.DataFrame.to_csv(temp, *args, **kwargs)   
+    
+    # Add a read-only property: _created_at
+    @property  
+    def created_at(self):
+        return self._created_at
+
+# Instantiate a LoggedDF called ldf
+ldf = LoggedDF({"col1": [1,2], "col2":[3,4]}) 
+
