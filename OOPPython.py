@@ -382,7 +382,7 @@ class Manager(Employee):
     def display(self):
         print("Manager ", self.name)
  
- class Employee:
+class Employee:
     def __init__(self, name, salary=30000):
         self.name = name
         self.salary = salary
