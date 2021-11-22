@@ -272,14 +272,14 @@ default_args = {
 # checks for the existence of a file at a certain location
 # can also check if any files exist within a directory
 
-from airflow.contrib.sensors.file_sensor import FileSensor
+# from airflow.contrib.sensors.file_sensor import FileSensor
 
-file_sensor_task = FileSensor(task_id=‘file_sense’,
-    filepath=‘sales data.csv’,
-    poke_interval=300,
-    dag=sales_report_dag)
+# file_sensor_task = FileSensor(task_id=‘file_sense’,
+#     filepath=‘sales data.csv’,
+#     poke_interval=300,
+#     dag=sales_report_dag)
 
-init_sales_cleanup >> file_sensor_task >> generate_report
+# init_sales_cleanup >> file_sensor_task >> generate_report
 
 # Other sensors
 # ExternalTaskSensor - wait for task in another DAG to complete (keeps dogs less complex)
@@ -451,3 +451,77 @@ generate_report_task = BashOperator(
 
 precheck >> generate_report_task
 
+# Templates
+# allow substitution of information during a DAG run
+# provide added flexibility when defining tasks
+# Created using Jinja templating language
+templated_command="""
+    echo "Reading {{ params.filename }}"
+"""
+t1 = BashOperator(task_id='template_task',
+    bash_command=templated_command,
+    params={filename: 'file1.txt'},
+    dag=example_dag)
+t2 = BashOperator(task_id='template_task',
+    bash_command=templated_command,
+    params={filename: 'file2.txt'},
+    dag=example_dag)
+
+# Exercises:
+from airflow.models import DAG
+from airflow.operators.bash_operator import BashOperator
+from datetime import datetime
+
+default_args = {
+  'start_date': datetime(2020, 4, 15),
+}
+
+cleandata_dag = DAG('cleandata',
+                    default_args=default_args,
+                    schedule_interval='@daily')
+
+# Create a templated command to execute
+# 'bash cleandata.sh datestring'
+templated_command = """
+bash cleandata.sh {{ ds_nodash }}
+"""
+
+# Modify clean_task to use the templated command
+clean_task = BashOperator(task_id='cleandata_task',
+                          bash_command=templated_command,
+                          dag=cleandata_dag)
+
+from airflow.models import DAG
+from airflow.operators.bash_operator import BashOperator
+from datetime import datetime
+
+default_args = {
+  'start_date': datetime(2020, 4, 15),
+}
+
+cleandata_dag = DAG('cleandata',
+                    default_args=default_args,
+                    schedule_interval='@daily')
+
+# Modify the templated command to handle a
+# second argument called filename.
+templated_command = """
+  bash cleandata.sh {{ ds_nodash }} {{ params.filename }}
+"""
+
+# Modify clean_task to pass the new argument
+clean_task = BashOperator(task_id='cleandata_task',
+                          bash_command=templated_command,
+                          params={'filename': 'salesdata.txt'},
+                          dag=cleandata_dag)
+
+# Create a new BashOperator clean_task2
+clean_task2 = BashOperator(task_id='cleandata_task2',
+                           bash_command=templated_command,
+                           params={'filename': 'supportdata.txt'},
+                           dag=cleandata_dag)
+                           
+# Set the operator dependencies
+clean_task >> clean_task2
+
+# More templates
