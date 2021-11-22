@@ -212,3 +212,242 @@ email_manager_task = EmailOperator(
 # Set the order of tasks
 pull_file_task >> parse_file_task >> email_manager_task
 
+# Airflow Scheduling
+
+# DAG run - a specific instance of a workflow at a given time
+# Can be run manually or with schedule_interval
+# Each dag run maintains state for each workflow and the tasks within it
+# state van be running, failed or success
+# Dag Runs menu shows all the dag runs and their state
+
+# Schedule details:
+# start_date - date time to initialize run (usually python date time object) - not necessarily when they will actually run, just the first time they can be run
+# end_date - optional for when to stop running new instances
+# max_tries - optional number of attempts before failure
+# schedule_interval - how often to run - between start_date and end_date
+# can be set up with cron or with builtin presets
+
+# Airflow scheduler presets:
+# @hourly 0 * * * * 
+# @daily 0 0  * * * 
+# @weekly 0 0 * * 0
+
+# Two special schedulers
+# None - don’t ever schedule - should only be run manually
+# @once - only scheduled once
+
+# Won’t schedule until one interval past the start_date (so if every hour, it will wait until 1 hour after start date)
+
+
+# Update the scheduling arguments as defined
+default_args = {
+  'owner': 'Engineering',
+  'start_date': datetime(2019, 11, 1),
+  'email': ['airflowresults@datacamp.com'],
+  'email_on_failure': False,
+  'email_on_retry': False,
+  'retries': 3,
+  'retry_delay': timedelta(minutes=20)
+}
+
+# dag = DAG('update_dataflows', default_args=default_args, schedule_interval='30 12 * * 3’)
+
+
+# Airflow Sensor (type of operator)
+# Sensor - operator that waits for a certain condition to be true
+# examples: creation of a file, upload of data, web response
+# Can define how often to check for the conditions to be true
+# Are assigned to tasks just like other operators
+# Need airflow.sensors.base_sensor_operator library
+# Sensor arguments:
+# mode- how to check for the condition
+# mode=‘poke’ - the default, run repeatedly
+# mode=‘reschedule’ - give up task slot and try again later
+# poke_interval - how often to wait between checks (should be at least 1 minute to keep from overloading)
+# timeout - how long to wait before failing task (should be significantly shorter than schedule interval)
+# also includes normal operator attributes
+
+# File Sensor:
+# Part of airflow.contrib.sensors library
+# checks for the existence of a file at a certain location
+# can also check if any files exist within a directory
+
+from airflow.contrib.sensors.file_sensor import FileSensor
+
+file_sensor_task = FileSensor(task_id=‘file_sense’,
+    filepath=‘sales data.csv’,
+    poke_interval=300,
+    dag=sales_report_dag)
+
+init_sales_cleanup >> file_sensor_task >> generate_report
+
+# Other sensors
+# ExternalTaskSensor - wait for task in another DAG to complete (keeps dogs less complex)
+# HttpSensor - request a web URL and check for content
+# SqlSensor - checks for content
+
+# Why use sensors?
+# Uncertain when a condition will be true
+# If failure not immediately desired
+# To add task repetition without loops
+
+# Airflow executors
+# Executors run tasks
+# different executors handle running the tasks differently
+# Some examples: SequentialExecutor, LocalExecutor, CeleryExecutor
+# SequentialExecutor:
+    # default executor
+    # runs one task at a time
+    # useful for debugging
+    # good for learning and testing, not recommended for production
+    # race condition
+# LocalExecutor:
+    # runs entirely on a single system
+    # treats tasks as processes and can run tasks concurrently (as many as allowed by system resources)
+    # parallelism is defined by the user
+    # unlimited parallelism or limited for a certain number of simultaneous tasks
+    # good for a single productions Airflow system and can utilize all the resources of a given host system
+# CeleryExecutor:
+    # queing system in Python that allows multiple systems to communicate as a basic cluster
+    # multiple airflow systems can be configured as workers for a given set of workflows/tasks
+    # can add extra systems to better balance workflows
+    # powerful choice for organizations with extensive workflows
+# To find the executor from the CL:
+# look at the airflow.cfg file
+# can also find it by:
+# airflow list_dags
+
+# Exercises:
+from airflow.models import DAG
+from airflow.operators.bash_operator import BashOperator
+from airflow.contrib.sensors.file_sensor import FileSensor
+from datetime import datetime
+
+report_dag = DAG(
+    dag_id = 'execute_report',
+    schedule_interval = "0 0 * * *"
+)
+
+precheck = FileSensor(
+    task_id='check_for_datafile',
+    filepath='salesdata_ready.csv',
+    start_date=datetime(2020,2,20),
+    mode='reschedule',
+    dag=report_dag
+)
+
+generate_report_task = BashOperator(
+    task_id='generate_report',
+    bash_command='generate_report.sh',
+    start_date=datetime(2020,2,20),
+    dag=report_dag
+)
+
+precheck >> generate_report_task
+
+# Debugging and Troubleshooting
+# Common issues:
+    # Dag won't run on schedule - usually because scheduler isn't running
+        # to fix from CL: airflow scheduler
+        # executor does not have enough free slots to run tasks
+            # change the executor type, add system resources, changing scheduling of your DAGs
+    # dag won't load (either Dag not in webUI or no it list_dags)
+        # verify Dag file is in correct folder
+        # check dags folder via airflow.cfg (where airflow expects your dag files to be)
+        # folder path must be an absolute path
+    # syntax errors
+        # airflow list_dags  - will output some debugging info
+        # python3 <dagfile.py> - if there are errors you'll get an error message
+
+# SLA's and reporting in Airflow
+# SLA - service level agreement
+# Within airflow - amount of time a task or DAG should require to run
+# SLA miss - any time the task/DAG does not meet the expected timing
+# If SLA is missed, an email is sent and a log is stored
+# Can view in the webUI (under Browse-SLA Misses)
+# Can configure sla argument on the task
+# sla=timedelta(seconds=30)
+# or is the default_args dictionary
+# timedelta object
+    # in the datetime library
+    # from datetime import delta
+    # takes arguments of days, seconds, minutes, hours, weeks
+# General reporting
+# can use email alerting built in to airflow
+# can send on success/failure/error
+#  handled through keys in the default_args dictionary
+# required argument is the list of emails assigned to the email key
+default_args={
+    'email': ['example@datacamp.com'],
+    'email_on_failure': True,
+    'email_on_retry': False,
+    'email_on_success': True,
+}
+
+# Exercises:
+# Import the timedelta object
+from datetime import timedelta
+
+# Create the dictionary entry
+default_args = {
+  'start_date': datetime(2020, 2, 20),
+  'sla': timedelta(minutes=30)
+}
+
+# Add to the DAG
+test_dag = DAG('test_workflow', default_args=default_args, schedule_interval='@None')
+
+test_dag = DAG('test_workflow', start_date=datetime(2020,2,20), schedule_interval='@None')
+
+# Create the task with the SLA
+task1 = BashOperator(task_id='first_task',
+                     sla=timedelta(hours=3),
+                     bash_command='initialize_data.sh',
+                     dag=test_dag)
+
+
+# Define the email task
+email_report = EmailOperator(
+        task_id='email_report',
+        to='airflow@datacamp.com',
+        subject='Airflow Monthly Report',
+        html_content="""Attached is your monthly workflow report - please refer to it for more detail""",
+        files=['monthly_report.pdf'],
+        dag=report_dag
+)
+
+# Set the email task to run after the report is generated
+email_report << generate_report
+
+from airflow.models import DAG
+from airflow.operators.bash_operator import BashOperator
+from airflow.contrib.sensors.file_sensor import FileSensor
+from datetime import datetime
+
+default_args={
+    'email': ['airflowalerts@datacamp.com', 'airflowadmin@datacamp.com'],
+    'email_on_failure': True,
+    'email_on_success': True
+}
+report_dag = DAG(
+    dag_id = 'execute_report',
+    schedule_interval = "0 0 * * *",
+    default_args=default_args
+)
+
+precheck = FileSensor(
+    task_id='check_for_datafile',
+    filepath='salesdata_ready.csv',
+    start_date=datetime(2020,2,20),
+    mode='reschedule',
+    dag=report_dag)
+
+generate_report_task = BashOperator(
+    task_id='generate_report',
+    bash_command='generate_report.sh',
+    start_date=datetime(2020,2,20),
+    dag=report_dag
+)
+
+precheck >> generate_report_task
+
