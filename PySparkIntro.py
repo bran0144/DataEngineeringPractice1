@@ -280,3 +280,73 @@ piped_data = flights_pipe.fit(model_data).transform(model_data)
 
 # Split the data into training and test sets
 training, test = piped_data.randomSplit([.6, .4])
+
+# logistic regression (predicts probability instead of a numeric variable (like in linear regression))
+# Need to classify a cut off point (above is a "yes", below is a "no")
+# Hyperparameters - a value in the data that is not esitmated from the data (it is suplied by the user to 
+# maximize performance)
+
+# Import LogisticRegression
+from pyspark.ml.classification import LogisticRegression
+
+# Create a LogisticRegression Estimator
+lr = LogisticRegression()
+
+# Cross validiation
+# k-fold - method that estimates the model's performance on unseen data
+# splits the training data into different partitions (default is 3).One partition is set aside
+# and the model is training with the other data. Error is measured against held out data. Repeated
+# with other partitions, until every partition is held out and used as a test exactly once. The error 
+# on each of the partitions is averaged (called cross validation error).
+# two parameters for this exercise: elasticNetParam, regParam
+# Need to commpare different models- BinaryClassificationEvaluator (calculates the area under the ROC)
+# Combines the two kind of errors the binary classifier can make (false positives and false negatives)
+# into a simple number
+
+# Import the evaluation submodule
+import pyspark.ml.evaluation as evals
+
+# Create a BinaryClassificationEvaluator
+evaluator = evals.BinaryClassificationEvaluator(metricName="areaUnderROC")
+
+# ParamGridBuilder - builds a grid of values to search over to find optimal hyperparameters
+
+# Import the tuning submodule
+import pyspark.ml.tuning as tune
+
+# Create the parameter grid
+grid = tune.ParamGridBuilder()
+
+# Add the hyperparameter
+grid = grid.addGrid(lr.regParam, np.arange(0, .1, .01))
+grid = grid.addGrid(lr.elasticNetParam, [0,1])
+
+# Build the grid
+grid = grid.build()
+
+# Create the CrossValidator
+cv = tune.CrossValidator(estimator=lr,
+               estimatorParamMaps=grid,
+               evaluator=evaluator
+               )
+
+# Fit cross validation models
+models = cv.fit(training)
+
+# Extract the best model
+best_lr = models.bestModel
+
+# Call lr.fit()
+best_lr = lr.fit(training)
+
+# Print best_lr
+print(best_lr)
+
+# AUC- common metric for binary classification algorithms (area under curve) (closer to 1)
+# ROC- recieving operating curve
+
+# Use the model to predict the test set
+test_results = best_lr.transform(test)
+
+# Evaluate the predictions
+print(evaluator.evaluate(test_results))
