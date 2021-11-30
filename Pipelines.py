@@ -154,3 +154,85 @@ for shop in requests.get(SHOPS_URL).json()["shops"]:
       records=({**item, "store_name": shop}
                for item in retrieve_products(shop))
     )
+
+# Pyspark
+# fast engine for large-scale data processing
+# 4 libraries built on top of Spark core:
+#   SparkSQL, Spark Streaming, MLib, GraphX
+# Useful for data processing at scale
+# Parallelizing its execution over multiple machines
+# Useful for interactive analytics
+# Not good for: when your data is small
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+prices = spark.read.options(header="true").csv("mnt/data_lae/landing/prices.csv")
+prices.show()
+
+# show displays the first 20 rows in tab format
+from pprint import pprint
+pprint(prices.dyptes)
+
+# Spark can infer data types, but it is better to define the schema
+schema = StructType([StructField("store", StringType(), nullable=False),
+        StructField("countrycode", StringType(), nullable=False)])
+prices = spark.read.options(header="true").schema(schema).csv("mnt/data_lae/landing/prices.csv")
+
+# Define the schema
+schema = StructType([
+  StructField("brand", StringType(), nullable=False),
+  StructField("model", StringType(), nullable=False),
+  StructField("absorption_rate", ByteType(), nullable=True),
+  StructField("comfort", ByteType(), nullable=True)
+])
+
+better_df = (spark
+             .read
+             .options(header="true")
+             # Pass the predefined schema to the Reader
+             .schema(schema)
+             .csv("/home/repl/workspace/mnt/data_lake/landing/ratings.csv"))
+pprint(better_df.dtypes)
+
+# Cleaning data
+# Common problems:
+#   incorrect data types (from csv all are strings)
+#   invalid rows (especially from manually entered data)
+#   incomplete rows
+#   badly chosen placeholders (like NA instead of null)
+# Cleaning depends on the context
+# Strict reporting environment (where every row of data counts)
+# Can system cope with data that is 95% clean or 95% complete
+# to drop bad rows:
+prices = (spark.read.options(header="true", mode="DROPMALFORMED").csv('landing/prices.csv'))
+# Spark's default way of handling missing data is to put in null
+# Can fill that with what you want:
+prices.fillna(25, subset=['quantity']).show()
+
+# to conditionally replace bad values:
+from pyspark.sql.functions import col, when
+from datetime import date, timedelta
+one_year_from_now = date.today().replace(year=date.today().year +1)
+better_frame = employees.withColumns("end_date", 
+    when(col("end_date") > one_year_from_now, None).otherwise(col("end_date")))
+
+# Exercises:
+
+# print("BEFORE")
+ratings.show()
+
+print("AFTER")
+# Replace nulls with arbitrary value on column subset
+ratings = ratings.fillna(4, subset=["comfort"])
+ratings.show()  
+
+from pyspark.sql.functions import col, when
+
+# Add/relabel the column
+categorized_ratings = ratings.withColumn(
+    "comfort",
+    # Express the condition in terms of column operations
+    when(col("comfort") > 3, "sufficient").otherwise("insufficient"))
+
+categorized_ratings.show()
+
