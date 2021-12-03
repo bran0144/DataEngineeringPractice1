@@ -236,3 +236,380 @@ categorized_ratings = ratings.withColumn(
 
 categorized_ratings.show()
 
+# Tranform data
+# Process: 
+#   collect data
+#   "massage data" : cleaning and business logic
+#   derive insights
+#  Common data transormations:
+#   - filtering data
+#   - selecting and renaming columns
+#   - grouping rows and aggregation 
+#   - joining multiple datasets
+#   - ordering data (to prioritize)
+
+# Filtering and ordering rows:
+prices_in_belgium = prices.filter(col('countrycode') == 'BE').orderBy(col('date'))
+# col function creates Column objects which can be compared to string literals and produce a bool Column
+# orderBy - sorts values (like by date)
+# Selecting and renaming columns:
+prices.select(col("store"), col("brand").alias("brandname")).distinct()
+# distinct gets rid of duplicates
+# alias allows you to rename columns
+# Grouping and aggregating with mean()
+(prices.groupBy(col('brand')).mean('price')).show()
+# Grouping and aggergating with agg() - to get both the avg and the count
+(prices
+  .groupBy(col('brand'))
+  .agg(
+    avg('price').alias('average_price'),
+    count('brand').alias('number_of_items')
+  )).show()
+# Joining related data
+# Executing a join with 2 foreign keys
+ratings_with_prices = ratings.join(prices, ['brand', 'model'])
+
+# Exercises:
+from pyspark.sql.functions import col
+
+# Select the columns and rename the "absorption_rate" column
+result = ratings.select([col("brand"),
+                       col("model"),
+                       col("absorption_rate").alias('absorbency')])
+
+# Show only unique values
+result.distinct().show()
+
+from pyspark.sql.functions import col, avg, stddev_samp, max as sfmax
+
+aggregated = (purchased
+              # Group rows by 'Country'
+              .groupBy(col('Country'))
+              .agg(
+                # Calculate the average salary per group and rename
+                avg('Salary').alias('average_salary'),
+                # Calculate the standard deviation per group
+                stddev_samp('Salary'),
+                # Retain the highest salary per group and rename
+                sfmax('Salary').alias('highest_salary')
+              )
+             )
+
+aggregated.show()
+
+# Running a pyspark program locally (just like regular Python)
+# python my_pyspark_data_pipeline.py
+# Need to have spark installed, access to referenced resources and configured classpath
+# Normally, you'll use spark-submit (helper program)
+# Sets up launch environment with cluster manager and the selected deploy mode
+# Cluster manager makes cluster resources like RAM, CPU of different nodes available to other programs
+# Deploy mode tells spark where the run the driver of Spark application (either on a 
+#   dedicated master node or on a worker node)
+# spark-submit also invokes the main class or main method
+# spark-submit 
+#   --master "local[*]" (often a URL of the cluster manager) 
+#   --py-files PY_FILES (cs list of zip, egg, or py, copies dependencies over to the workers)
+#   MAIN_PYTHON_FILE  (paht to the module to be run, contains code to trigger creation of SparkSession)
+#   app_arguments
+# zip files are common for the py-files
+#   navigate to root folder of module
+#   invoke the zip utility:
+#   zip --recurse-paths dependencies.zip pydiaper
+#   spark-submit --py-files dependencies.zip pydiaper/cleaning/clean_prices.py
+
+# Pyspark Unit Tests
+# Unit test are in the transformation layer (extract and load use other systems)
+prices_with_ratings = spark.read.csv(...)
+exchange_rates = spark.read.csv(...)
+unit_prices_with_ratings = (prices_with_ratings
+                          .join(...)
+                          .withColumn(...))
+# construct spark DF's in memory (dummy df's)
+from pyspark.sql import Row
+purchase = Row("price", "quantity", "product")
+record = purchase(12.99, 1, "cake")
+df = spark.createDataFrame((record,))
+
+def link_with_exchange_rates(prices, rates):
+  return prices.join(rates, ["currency", "date"])
+
+def calculate_unit_price_in_euro(df):
+  return df.withColumn("unit_price_in_euro", 
+        col("price") / col("quantity") * col("exchange_rate_to_euro"))
+
+def test_calculate_unit_price_in_euro():
+  record = dict(price=10, quantity=5, exchange_rate_to_euro=2.)
+  df = spark.createDateFrame([Row(**record)])
+  result = calculate_unit_price_in_euro(df)
+
+  expected_record = Row(**record, unit_price_in_euro=4.)
+  expected = spark.createDataFrame([expected_record])
+
+  assertDataFrameEqual(result, expected)
+
+# Exercises:
+from datetime import date
+from pyspark.sql import Row
+
+Record = Row("country", "utm_campaign", "airtime_in_minutes", "start_date", "end_date")
+
+# Create a tuple of records
+data = (
+  Record("USA", "DiapersFirst", 28, date(2017, 1, 20), date(2017, 1, 27)),
+  Record("Germany", "WindelKind", 31, date(2017, 1, 25), None),
+  Record("India", "CloseToCloth", 32, date(2017, 1, 25), date(2017, 2, 2))
+)
+
+# Create a DataFrame from these records
+frame = spark.createDataFrame(data)
+frame.show()
+
+# Continuous tests
+# unittest and doctest are in standard library
+# pytest is also great and lets you do a test suite
+# pytest .  (runs all the tests)
+# git can help automate by configuring hooks
+# CI/CD pipeline (.circleci/config.yml) - this automates deployment
+# checkout code
+# install test and build requirements
+# run tests with pytest
+# package/build software
+
+# Workflow management
+# workflow - sequence of tasks that are scheduled or triggered by the occurrence of an event
+# often schduled with cron
+# cron reads config files known as crontab files
+# Other workflow managers:
+# Luigi (python based)
+# Azkaban (java based)
+# Airflow (python based)
+# Airflow helps:
+  # create and visualize complex workflows
+  # monitor and logs workflows
+  # scales horizontally
+from airflow import DAG
+my_dag = DAG(
+    dag_id="publish_logs",
+    schedule_interval="* * * * * ",
+    start_date=datetime(2010, 1, 1)
+)
+
+from datetime import datetime
+from airflow import DAG
+
+reporting_dag = DAG(
+    dag_id="publish_EMEA_sales_report", 
+    # Insert the cron expression
+    schedule_interval="0 7 * * 1",
+    start_date=datetime(2019, 11, 24),
+    default_args={"owner": "sales"}
+)
+
+# Specify direction using verbose method
+prepare_crust.set_downstream(apply_tomato_sauce)
+
+tasks_with_tomato_sauce_parent = [add_cheese, add_ham, add_olives, add_mushroom]
+for task in tasks_with_tomato_sauce_parent:
+    # Specify direction using verbose method on relevant task
+    apply_tomato_sauce.set_downstream(task)
+
+# Specify direction using bitshift operator
+tasks_with_tomato_sauce_parent >> bake_pizza
+
+# Specify direction using verbose method
+bake_pizza.set_upstream(prepare_oven)
+
+# BashOperator
+from airflow.operators.bash_operator import BashOperator
+bask_task=BashOperator(
+  task_id="greet_world",
+  dag=dag,
+  bash_command='echo "hello, world!"'
+)
+
+python_task=PythonOperator(
+  dag=dag,
+  task_id="perform_magic",
+  python_callable=my_function,
+  op_kwargs={"snowflake": "*", "amount": 42}
+)
+
+# Running pyspark from Airflow:
+spark_master=(
+  "spark://"
+  "spark_standalone_cluster_ip"
+  ":7077")
+command=(
+  "spark-submit "
+  "--master {master} "
+  "--py-files package1.zip "
+  "/path/to/app.py"
+).format(master=spark_master)
+BashOperator(bash_command=command)
+
+# Must have spark binaries installed on the Airflow server
+# Using ssh Operator (allows you to remote access a spark enabled cluster):
+from airflow.contrib.operators.ssh_operator import SSHOperator
+task = SSHOperator(
+  task_id="ssh_spark_submit",
+  dag=dag,
+  command=command,
+  ssh_conn_id="spark_master_ssh"
+)
+# can configure ssh_conn_id in Airflow user interface under Admin menu "connections"
+# SparkSubmitOperator
+from airflow.contrib.operators.spark_submit_operator import SparkSubmitOperator
+spark_task= SparkSubmitOperator(
+  task_id="spark_submit_id",
+  dag=dag,
+  application="/path/to/app.py",
+  py_files="package1.zip",
+  conn_id="spark_default"
+)
+
+# Exercises:
+# Create a DAG object
+dag = DAG(
+  dag_id='optimize_diaper_purchases',
+  default_args={
+    # Don't email on failure
+    'email_on_failure': False,
+    # Specify when tasks should have started earliest
+    'start_date': datetime(2019, 6, 25)
+  },
+  # Run the DAG daily
+  schedule_interval='@daily')
+
+config = os.path.join(os.environ["AIRFLOW_HOME"], 
+                      "scripts",
+                      "configs", 
+                      "data_lake.conf")
+
+ingest = BashOperator(
+  # Assign a descriptive id
+  task_id="ingest_data", 
+  # Complete the ingestion pipeline
+  bash_command="tap-marketing-api | target-csv --config %s" % config,
+  dag=dag)
+
+# Import the operator
+from airflow.contrib.operators.spark_submit_operator import SparkSubmitOperator
+
+# Set the path for our files.
+entry_point = os.path.join(os.environ["AIRFLOW_HOME"], "scripts", "clean_ratings.py")
+dependency_path = os.path.join(os.environ["AIRFLOW_HOME"], "dependencies", "pydiaper.zip")
+
+with DAG('data_pipeline', start_date=datetime(2019, 6, 25),
+         schedule_interval='@daily') as dag:
+  	# Define task clean, running a cleaning job.
+    clean_data = SparkSubmitOperator(
+        application=entry_point, 
+        py_files=dependency_path,
+        task_id='clean_data',
+        conn_id='spark_default')
+
+spark_args = {"py_files": dependency_path,
+              "conn_id": "spark_default"}
+# Define ingest, clean and transform job.
+with dag:
+    ingest = BashOperator(task_id='Ingest_data', bash_command='tap-marketing-api | target-csv --config %s' % config)
+    clean = SparkSubmitOperator(application=clean_path, task_id='clean_data', **spark_args)
+    insight = SparkSubmitOperator(application=transform_path, task_id='show_report', **spark_args)
+    
+    # set triggering sequence
+    ingest >> clean >> insight
+
+# Deploying Airflow
+#  Installing and configuring Airflow (barebones)
+# export AIRFLOW_HOME=~/airflow 
+# pip install apache-airflow
+# airflow initdb
+# will create a subdirectory for all the log files, two configuration files, and a SQLite database
+# need to configure Airflow to use the SequentialExecutor
+# Production Airflow
+# will have many more folders (dags, tests, connections, plugins, connection pools, variables )
+# sometimes it is hard to debug without the web interface of Airflow, setting up a test like this can help
+from airflow.models import DagBag
+def test_dagbag_import():
+  dagbag=DagBag()
+  number_of_failures = len(dagbag.import_errors)
+  assert number_of_failures == 0, "There should be no DAG failures. Got: %s" % dagbag.import_errors
+
+# Exercises:
+from datetime import datetime, timedelta
+
+from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonOperator
+
+default_args = {
+    #    "owner": "squad-a",
+    "depends_on_past": False,
+    "start_date": datetime(2019, 7, 5),
+    "email": ["foo@bar.com"],
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+}
+
+dag = DAG(
+    "cleaning",
+    default_args=default_args,
+    user_defined_macros={"env": Variable.get("environment")},
+    schedule_interval="0 5 */2 * *"
+)
+
+
+def say(what):
+    print(what)
+
+
+with dag:
+    say_hello = BashOperator(task_id="say-hello", bash_command="echo Hello,")
+    say_world = BashOperator(task_id="say-world", bash_command="echo World")
+    shout = PythonOperator(task_id="shout",
+                           python_callable=say,
+                           op_kwargs={'what': '!'})
+
+    say_hello >> say_world >> shout
+
+from datetime import datetime, timedelta
+
+from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonOperator
+
+default_args = {
+    "owner": "squad-a",
+    "depends_on_past": False,
+    "start_date": datetime(2019, 7, 5),
+    "email": ["foo@bar.com"],
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+}
+
+dag = DAG(
+    "cleaning",
+    default_args=default_args,
+    user_defined_macros={"env": Variable.get("environment")},
+    schedule_interval="0 5 */2 * *"
+)
+
+
+def say(what):
+    print(what)
+
+
+with dag:
+    say_hello = BashOperator(task_id="say-hello", bash_command="echo Hello,")
+    say_world = BashOperator(task_id="say-world", bash_command="echo World")
+    shout = PythonOperator(task_id="shout",
+                           python_callable=say,
+                           op_kwargs={'what': '!'})
+
+    say_hello >> say_world >> shout
