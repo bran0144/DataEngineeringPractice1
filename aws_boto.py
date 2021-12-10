@@ -464,3 +464,156 @@ s3.upload_file(
     'ContentType': 'text/html', 
     'ACL': 'public-read'
   })
+
+# SNS Topics
+# Sending alerts is very important in data engineering
+# Has publishers and subscribers
+# Topics - every topic as an ARN (amazon resource name)
+# Creating an SNS Topic:
+sns = boto3.client(
+    'sns',
+    region_name='us-east-1',
+    aws_access_key_id=AWS_KEY_ID,
+    aws_secret_access=AWS_SECRET)
+
+response = sns.create_topic(Name='city_alerts')
+# returns an API reponse from AWS
+topic_arn = response['TopicArn']
+# or use this shortcut:
+sns.create_topic(Name='city_alerts')['TopicArn']
+# creating topics is idempotent - if we try to create a topic with the same name, it will return
+# the topic that already exists (not an error)
+
+reponse = sns.list_topics()
+# returns a topics' key with a list of topics our user has access to
+
+# Exercises:
+# Initialize boto3 client for SNS
+sns = boto3.client('sns', 
+                   region_name='us-east-1', 
+                   aws_access_key_id=AWS_KEY_ID, 
+                   aws_secret_access_key=AWS_SECRET)
+
+# Create the city_alerts topic
+response = sns.create_topic(Name="city_alerts")
+c_alerts_arn = response['TopicArn']
+
+# Re-create the city_alerts topic using a oneliner
+c_alerts_arn_1 = sns.create_topic(Name='city_alerts')['TopicArn']
+
+# Compare the two to make sure they match
+print(c_alerts_arn == c_alerts_arn_1)
+
+# Create list of departments
+departments = ['trash', 'streets', 'water']
+
+for dept in departments:
+  	# For every department, create a general topic
+    sns.create_topic(Name="{}_general".format(dept))
+    
+    # For every department, create a critical topic
+    sns.create_topic(Name="{}_critical".format(dept))
+
+# Print all the topics in SNS
+response = sns.list_topics()
+print(response['Topics'])
+
+# Get the current list of topics
+topics = sns.list_topics()['Topics']
+
+for topic in topics:
+  # For each topic, if it is not marked critical, delete it
+  if "critical" not in topic['TopicArn']:
+    sns.delete_topic(TopicArn=topic['TopicArn'])
+    
+# Print the list of remaining critical topics
+print(sns.list_topics()['Topics'])
+
+# Subscription List (on GUI)
+# each has a unique ID, protocol, and status
+# There are several options for protocols (email, SMS, etc)
+# endpoint - where message should be sent
+# phone numbers are automatically confirmed
+# for email, user has to click link to authorize the subscription
+# To create an SMS subscription:
+sns = boto3.client('sns',
+        region_name='us-east-1',
+        aws_access_key_id=AWS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET)
+
+response = sns.subscribe(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts',
+    Protocol = "SMS",
+    Endpoint = '+13125551234')
+# response is a dictionary that contains "SubscriptionArn" key
+# To make an email subscription:
+response = sns.subscribe(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts',
+    Protocol = "email",
+    Endpoint = 'data@datacamp.com')
+# do not get a subcriptionArn key right away, you get a pending confirmation message
+# to list subscriptions:
+sns.list_subscriptions_by_topic(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts'
+)
+# returns a subscriptions key with a list of subscription dictionaries
+# will include ARN if possible
+# to list all subscriptions:
+sns.list_subscriptions()['Subscriptions']
+# deleting subscriptions:
+sns.unsubscribe(SubscribeArn='arn:aws:sns:us-east-1:...')
+# to delete all subscriptions that use SMS protocol
+reponse = sns.list_subscriptions_by_topic(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts')
+subs = response['Subscriptions']
+for sub in subs:
+    if sub['Protocol'] == 'sms':
+        sns.unsubscribe(sub['SubscriptionArn'])
+
+# Exercises:
+# Subscribe Elena's phone number to streets_critical topic
+resp_sms = sns.subscribe(
+  TopicArn = str_critical_arn, 
+  Protocol='sms', Endpoint="+16196777733")
+
+# Print the SubscriptionArn
+print(resp_sms['SubscriptionArn'])
+
+# Subscribe Elena's email to streets_critical topic.
+resp_email = sns.subscribe(
+  TopicArn = str_critical_arn, 
+  Protocol='email', Endpoint="eblock@sandiegocity.gov")
+
+# Print the SubscriptionArn
+print(resp_email['SubscriptionArn'])
+
+# For each email in contacts, create subscription to street_critical
+for email in contacts['Email']:
+  sns.subscribe(TopicArn = str_critical_arn,
+                # Set channel and recipient
+                Protocol = 'email',
+                Endpoint = email)
+
+# List subscriptions for streets_critical topic, convert to DataFrame
+response = sns.list_subscriptions_by_topic(
+  TopicArn = str_critical_arn)
+subs = pd.DataFrame(response['Subscriptions'])
+
+# Preview the DataFrame
+subs.head()
+
+# List subscriptions for streets_critical topic.
+response = sns.list_subscriptions_by_topic(
+  TopicArn = str_critical_arn)
+
+# For each subscription, if the protocol is SMS, unsubscribe
+for sub in response['Subscriptions']:
+  if sub['Protocol'] == 'sms':
+	  sns.unsubscribe(SubscriptionArn=sub['SubscriptionArn'])
+
+# List subscriptions for streets_critical topic in one line
+subs = sns.list_subscriptions_by_topic(
+  TopicArn=str_critical_arn)['Subscriptions']
+
+# Print the subscriptions
+print(subs)
