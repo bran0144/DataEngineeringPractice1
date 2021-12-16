@@ -617,3 +617,138 @@ subs = sns.list_subscriptions_by_topic(
 
 # Print the subscriptions
 print(subs)
+
+# Pulishing to a topic 
+# all subscribers will receive it
+response = sns.publish(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts',
+    Message = 'Body text of SMS or email',
+    Subject = 'Subject line for email'      #not visible for SMS
+)
+# Can use stringf formatting to replace with variables from data
+num_of_reports = 137
+response = sns.publish(
+    TopicArn = 'arn:aws:sns:us-east-1:320333787981:city_alerts',
+    Message = 'There are {} reports outstanding'.format(num_of_reports),
+    Subject = 'Subject line for email'      
+)
+# Can send a single SMS message, (don't need a topic or subscribers) (but can't send email this way)
+response = sns.publish(
+    PhoneNumber ='+131212345678',
+    Message = 'Body text'
+)
+
+# Exercises:
+# If there are over 100 potholes, create a message
+if streets_v_count > 100:
+  # The message should contain the number of potholes.
+  message = "There are {} potholes!".format(streets_v_count)
+  # The email subject should also contain number of potholes
+  subject = "Latest pothole count is {}".format(streets_v_count)
+
+  # Publish the email to the streets_critical topic
+  sns.publish(
+    TopicArn = str_critical_arn,
+    # Set subject and message
+    Message = message,
+    Subject = subject
+  )
+
+# Loop through every row in contacts
+for idx, row in contacts.iterrows():
+    
+    # Publish an ad-hoc sms to the user's phone number
+    response = sns.publish(
+        # Set the phone number
+        PhoneNumber = str(row['Phone']),
+        # The message should include the user's name
+        Message = 'Hello {}'.format(row['Name'])
+    )
+   
+    print(response)
+
+# Case study
+sns = boto3.client('sns',
+        region_name='us-east-1',
+        aws_access_key_id=AWS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET)
+
+trash_arn = sns.create_topic(Name='trash_notifications')['TopicArn']
+streets_arn = sns.create_topic(Name='streets_notifications')['TopicArn']
+
+contacts = pd.read_csv('http://gid-staging.s3.amazonaws.com/contacts.csv')
+
+def subscribe_user(user_row):
+    if user_row['Department'] == 'trash':
+        sns.subscribe(TopicArn=trash_arn, Protocol='sms', Endpoint=str(user_row['Phone']))
+        sns.subscribe(TopicArn=trash_arn, Protocol='email', Endpoint=user_row['Email'])
+    else:
+        sns.subscribe(TopicArn=streets_arn, Protocol='sms', Endpoint=str(user_row['Phone']))
+        sns.subscribe(TopicArn=streets_arn, Protocol='email', Endpoint=user_row['Email'])
+
+contacts.apply(subscribe_user, axis=1)
+
+# can do it this way, because it is public
+df = pd.read_csv('http://gid-reports.s3.amazonaws.com/2019/feb/final_report.csv')
+df.set_index('service_name', inplace=True)
+trash_violations_count = df.at['Illegal Dumping', 'count']
+street_violations_count = df.at['Pothole', 'count']
+
+if trash_violations_count > 100:
+    message = "Trash violations count is now {}".format(trash_violations_count)
+    sns.publish(TopicArn = trash_arn,
+                Message = message,
+                Subject = "Trash Alert")
+
+if street_violations_count > 30:
+    message = "Street violations count is now {}".format(street_violations_count)
+    sns.publish(TopicArn = streets_arn,
+                Message = message,
+                Subject = "Streets Alert")          
+
+# Exercises:
+dept_arns = {}
+
+for dept in departments:
+  # For each deparment, create a critical Topic
+  critical = sns.create_topic(Name="{}_critical".format(dept))
+  # For each department, create an extreme Topic
+  extreme = sns.create_topic(Name="{}_extreme".format(dept))
+  # Place the created TopicARNs into a dictionary 
+  dept_arns['{}_critical'.format(dept)] = critical['TopicArn']
+  dept_arns['{}_extreme'.format(dept)] = extreme['TopicArn']
+
+# Print the filled dictionary
+print(dept_arns)
+
+for index, user_row in contacts.iterrows():
+  # Get topic names for the users's dept
+  critical_tname = '{}_critical'.format(user_row['Department'])
+  extreme_tname = '{}_extreme'.format(user_row['Department'])
+  
+  # Get or create the TopicArns for a user's department.
+  critical_arn = sns.create_topic(Name=critical_tname)['TopicArn']
+  extreme_arn = sns.create_topic(Name=extreme_tname)['TopicArn']
+  
+  # Subscribe each users email to the critical Topic
+  sns.subscribe(TopicArn = critical_arn, 
+                Protocol='email', Endpoint=user_row['Email'])
+  # Subscribe each users phone number for the extreme Topic
+  sns.subscribe(TopicArn = extreme_arn, 
+                Protocol='sms', Endpoint=str(user_row['Phone']))
+
+if vcounts['water'] > 100:
+  # If over 100 water violations, publish to water_critical
+  sns.publish(
+    TopicArn = dept_arns['water_critical'],
+    Message = "{} water issues".format(vcounts['water']),
+    Subject = "Help fix water violations NOW!")
+
+if vcounts['water'] > 300:
+  # If over 300 violations, publish to water_extreme
+  sns.publish(
+    TopicArn = dept_arns['water_extreme'],
+    Message = "{} violations! RUN!".format(vcounts['water']),
+    Subject = "THIS IS BAD.  WE ARE FLOODING!")
+
+               
