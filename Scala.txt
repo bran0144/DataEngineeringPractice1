@@ -1,0 +1,70 @@
+Scala - means scalable language
+    runs on the JVM
+    designed to grow with the demands of users, from writing small scripts
+    everything is customizable to your program's requirements
+    Object oriented AND functional programming
+    Static typing
+Flexible
+    lets you add new types, collections, and control constructs
+Convenient
+    standard library has a set of predefined types, collections, etc.
+Object oriented 
+    every value is an Object
+    every operation is a method call
+Functional programming language
+    - functions are first class values (just like integers and strings)
+    - can pass them as arguments to other functions, return them from functions, store them in variables
+    - Operations of a program should map input values to output values rather than change data in place
+    - functions should not have side effects
+Concise, High Level
+Static Typing - advanced so that it reduces verbosity and adds language flexibility
+Can be built on previously exisiting Java code
+Has JVM and Javascript runtimes that let you build systems with access to huge libraries
+
+println() - print line function
+
+Immutable variables (val) - cannot be reassigned
+    val fourHearts: Int = 4
+
+Value types:
+Double - default floating point value- more precise than float (15 decimal places)
+Float - (7 decimal places)
+Long
+Int - 32 bit signed intger (-2 bil+, to 2 bil)
+Short
+Byte
+Char
+Boolean 
+Unit
+
+All of these are equivalent to Java primitive types (java.lang)
+
+Most common for data related tasks:
+Double, Int, Boolean, String
+String is a sequence of chars
+
+Mutalble variable (var):
+var aceSpades: Int = 1
+
+to reassign:
+aceSpades = 11
+
+Should use val whenever possible:
+    data cannot be changed accidentally (defensive coding)
+    easier to reason about
+    Fewer unit tests to write
+    More memtory required due to data copying (To change objects, you'll need to create a new object)
+
+Also allows for type inference so we can do this:
+val fourHearts = 4   
+
+Exercises:
+// Create a mutable variable for Alex as player A
+var playerA: String = "Alex"
+
+// Change the point value of A♦ from 1 to 11
+aceDiamonds = 11
+
+// Calculate hand value for J♣ and A♦
+println(jackClubs + aceDiamonds)
+
