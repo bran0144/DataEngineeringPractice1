@@ -68,3 +68,300 @@ aceDiamonds = 11
 // Calculate hand value for J♣ and A♦
 println(jackClubs + aceDiamonds)
 
+Scripts
+    good for smaller tasks that can fit into a single file 
+    scala command executes script by wrapping it in a template and then compiling and executing the resulting program
+    scripts are compiled and executed every time
+Interpreted langauge vs. compiled langauge
+    interpreter- a program that directly executes instructions written in a programming langugage, does not
+        need to be previously compiled into machine code
+    compiler - translates source code from a high level language to a lower level (machine code) to create
+        an executable program
+Scala applications must be compiled and then run explicitly
+    consist of many source files that can be compiled individually
+    useful for larger programs
+    applications are precompiled (less lag time)
+Scala compiler: 
+    scalac Game.scala
+        this translates the scala code into java bytecode
+    scala Game
+        this runs the code
+Build files
+    sbt - simple build tool - compiles, runs, and tests scala apps
+
+Functions
+    all functions produce results
+    all results have values
+    all values have value types
+    can pass in expressions and functions(not just variables)
+
+def bust(hand: Int): Boolean = {
+    hand > 21
+}   
+to call the function:
+    println(bust(20))       with an integer
+    println(bust(kingSpades + tenHearts))       with an expression
+
+Exercises:
+def maxHand(handA: Int, handB: Int): Int = {
+    if (handA > handB) handA
+    else handB
+}
+
+// Calculate hand values
+var handPlayerA: Int = (queenDiamonds + threeClubs + aceHearts + fiveSpades)
+var handPlayerB: Int = (kingHearts + jackHearts)
+
+// Find and print the maximum hand value
+println(maxHand(handPlayerA, handPlayerB))
+
+Collections:
+    mutable - can be updated or extended in place
+    immutable - must return a new collection to update, remove, etc. and old collection is unchanged
+    Arrays are mutable - must share same data type
+        val players = Array("Alex", "Chen", "Marta")
+            scala parameterizes (configures its types and parameter values) and initializes elements at once
+            or: you can separate them out- parameterize an array:
+                val players = new Array[String](3)
+            then initializing elements:     () not []
+                players(0) = "Alex"
+                players(1) = "Chen"
+        arrays are sequential (meaning they have order and are zero indexed)
+        even though it is "val", because arrays are mutable, they object CAN change
+        arrays can only be updated with the same value type
+        default is to use val, not var for arrays
+        you CAN mix and match type by using Any as the parameter type:
+            val mixedTypes = new Array[Any](3)
+
+Exercises:
+// Create and parameterize an array for a round of Twenty-One
+val hands: Array[Int] = new Array[Int](3)
+
+// Initialize the first player's hand in the array
+hands(0) = tenClubs + fourDiamonds
+
+// Initialize the second player's hand in the array
+hands(1) = nineSpades + nineHearts
+
+// Initialize the third player's hand in the array
+hands(2) = twoClubs + threeSpades
+
+// Create, parameterize, and initialize an array for a round of Twenty-One
+val hands = Array(tenClubs + fourDiamonds,
+              nineSpades + nineHearts,
+              twoClubs + threeSpades)
+
+// Add 5♣ to the first player's hand
+hands(0) = hands(0) + fiveClubs
+
+// Add Q♠ to the second player's hand
+hands(1) = hands(1) + queenSpades
+
+// Add K♣ to the third player's hand
+hands(2) = hands(2) + kingClubs
+
+// Print out hands after each player hits
+hands.foreach(println)
+
+Lists:
+    immutable set sequence - same data type
+        val players = List("Alex", "Chen", "Marta")
+    calling a method on a List object returns a new list with a new value
+    some methods:
+        myList.drop()
+        myList.reverse
+        myList.length
+    :: prepends a new element to the start of an existing list (belongs to list objects)
+        val newPlayers = "Sindhu" :: players
+        need to store this into a new list, since players is immutable
+        OR you can make it a var and reassign:
+            var players = List("Alex", "Chen", "Marta")
+            players = "Sindhu" :: players
+    scala has an append operation, but rarely used because it is inefficient
+    Nil - an empty list
+    a common way to initialize a new list:
+        val players = "Alex" :: "Chen" :: "Marta" :: Nil
+    ::: for concatenating lists:
+        val playersA = List("Sindhu", "Alex")
+        val playersB = List("Chen", "Marta)
+        val allPlayers = playersA ::: playersB
+            note: original lists were not mutated
+
+Exercises:
+// Initialize a list with an element for each round's prize
+val prizes = 10 :: 15 :: 20 :: 25 :: 30 :: Nil
+println(prizes)
+
+// Prepend to prizes to add another round and prize
+val newPrizes = 5 :: prizes
+println(newPrizes)
+
+// The original NTOA and EuroTO venue lists
+val venuesNTOA = List("The Grand Ballroom", "Atlantis Casino", "Doug's House")
+val venuesEuroTO = "Five Seasons Hotel" :: "The Electric Unicorn" :: Nil
+
+// Concatenate the North American and European venues
+val venuesTOWorld = venuesNTOA ::: venuesEuroTO
+
+Statically typed:
+    type - restricts possible values to which a variable can refer, or an expression can produce, at run time
+    compile time - when scala code is translated into java byte code
+    pros: execute a little faster, common bugs are caught earlier, safer refactoring, type annotations make 
+        understanding code easier
+    cons: time to check types (delay of execution), verbose code, less flexibility
+    type inference reduces verbosity
+Control Structures:
+    block of programming that analyses varaibles and chooses a direction based on parameters
+
+val hand = 24
+if (hand > 21) {
+    println("This hand busts!")
+}       Curly braces are needed if there is no else statement
+
+val handA = 17
+val handB = 19
+if (handA > handB) println(handA)
+else println(handB)     don't need curly braces with an else statement
+
+val handA = 26
+val handB = 20
+// If both hands bust, neither wins
+if (bust(handA) & bust(handB)) println(0)
+// if hand A busts, hand B wins
+else if (bust(handA)) println(handB)
+//if hand B busts, hand A wins
+else if (bust(handB)) println(handA)
+// if hand A is greater than B, hand A wins
+else if (handA > handB) println(handA)
+// if hand B is greater than A, hand B wins
+else println(handB)
+
+If expressions result in a value, which means if expressions can be assigned to a val
+Boolean and logical expressions:
+
+> greater than
+< less than
+>= greater than or equal to
+<= less than or equal to
+== equal to
+!= not equal
+&& and
+|| or
+! not
+
+Exercises:
+// Point value of a player's hand
+val hand = sevenClubs + kingDiamonds + threeSpades
+
+// Congratulate the player if they have reached 21
+if (hand == 21) {
+    println("Twenty-One!")
+}
+
+// Point value of a player's hand
+val hand = sevenClubs + kingDiamonds + threeSpades
+
+// Inform a player where their current hand stands
+val informPlayer: String = {
+  if (hand > 21)
+    "Bust! :("
+  else if (hand == 21) 
+    "Twenty-One! :)"
+  else
+    "Hit or stay?"
+}
+
+// Print the message
+print(informPlayer)
+
+// Find the number of points that will cause a bust
+def pointsToBust(hand: Int): Int = {
+  // If the hand is a bust, 0 points remain
+  if (hand > 21)
+    0
+  // Otherwise, calculate the difference between 21 and the current hand
+  else
+    21 - hand
+}
+
+// Test pointsToBust with 10♠ and 5♣
+val myHandPointsToBust = pointsToBust(tenSpades + fiveClubs)
+println(myHandPointsToBust)
+
+While loops and imperative style:
+var i = 0
+val numRepetitions = 3
+while (i < numRepetitions) {
+    println("Hip hip hooray!)
+    i = i + 1  (or coud be i += 1)
+}
+Looping over collections:
+var i = 0
+var hands = Array(17, 24, 21)
+while (i < hands.length) {
+    println(bust(hands(i)))
+    i = i + 1
+}
+
+Exercises:
+// Define counter variable
+var i = 0
+
+// Define the number of loop iterations
+val numRepetitions = 3
+
+// Loop to print a message for winner of the round
+while (i < numRepetitions) {
+  if (i < 2)
+    println("winner")
+  else
+    println("chicken dinner")
+  // Increment the counter variable
+  i = i + 1
+}
+
+// Define counter variable
+var i = 0
+
+// Create list with five hands of Twenty-One
+var hands = List(16, 21, 8, 25, 4)
+
+// Loop through hands
+while (i < hands.length) {
+  // Find and print number of points to bust
+  println(pointsToBust(hands(i)))
+  // Increment the counter variable
+  i = i + 1
+}
+
+Scala is actually a imperative/functional hybrid
+    is it usually functional, but can also be imperative
+    imperative programming is one command at a time, iterating with loops, mutating shared state
+    foreach is a method that takes a function in as an argument
+    Imperative (var, side effects, Unit)
+    Functional (val, no side effects, Non-Unit value types)
+
+Foreach method:
+def bust(hand: Int) = {
+    println(hand > 21)
+}
+var hands = Array(17, 24, 21)
+hands.foreach(bust)
+
+Exercises:
+// Find the number of points that will cause a bust
+def pointsToBust(hand: Int) = {
+  // If the hand is a bust, 0 points remain
+  if (bust(hand))
+    println(0)
+  // Otherwise, calculate the difference between 21 and the current hand
+  else
+    println(21 - hand)
+}
+
+// Create list with five hands of Twenty-One
+var hands = List(16, 21, 8, 25, 4)
+
+// Loop through hands, finding each hand's number of points to bust
+hands.foreach(pointsToBust)
+
