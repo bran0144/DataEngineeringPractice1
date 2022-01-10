@@ -358,3 +358,108 @@ print("Total rows in split DataFrame:\t%d" % split_df.count())
 print("Time to run: %f" % (time.time() - start_time_b))
 
 #Cluster sizing tips
+# to read configuration settings:
+spark.conf.get(<configuration name>)
+# to write configs:
+spark.conf.set(<configuration name>)
+# spark deployment options:
+    #single node
+    #standalone
+    #managed (by YARN, Mesos, K8S)
+#Driver (one driver per cluster)
+    #handles task assignment
+    #result consolidation
+    #shared data access
+    #Tips:
+        #driver node should have double the memory of the worker nodes
+        #fast local storage is helpful
+# Worker
+    #runs actual tasks
+    #ideally has all code, data, and resources for their given task
+    # Recommendations:  
+        #more worker nodes is often better than larger workers
+        #especially important for import and export
+        #test different configurations to find the best balance
+        #fast local storage extremely useful
+#Exercises:
+# Name of the Spark application instance
+app_name = spark.conf.get('spark.app.name')
+
+# Driver TCP port
+driver_tcp_port = spark.conf.get('spark.driver.port')
+
+# Number of join partitions
+num_partitions = spark.conf.get('spark.sql.shuffle.partitions')
+
+# Show the results
+print("Name: %s" % app_name)
+print("Driver TCP port: %s" % driver_tcp_port)
+print("Number of partitions: %s" % num_partitions)
+
+# Store the number of partitions in variable
+before = departures_df.rdd.getNumPartitions()
+
+# Configure Spark to use 500 partitions
+spark.conf.set('spark.sql.shuffle.partitions', 500)
+
+# Recreate the DataFrame using the departures data file
+departures_df = spark.read.csv('departures.txt.gz').distinct()
+
+# Print the number of partitions for each instance
+print("Partition count before change: %d" % before)
+print("Partition count after change: %d" % departures_df.rdd.getNumPartitions())
+
+#Spark Execution Plan
+voter_df = df.select(df['VOTER NAME']).distinct()
+voter_df.explain()
+#result is the estimated plan to give the result from the data frame
+#Shuffling - moving data around to various workers to complete a task
+    #hides complexity from the user
+    #can be slow to complete
+    #lowers overall throughput
+    #is often necessary, but try to minimize
+#How to limit shuffling?
+    #limit use of .repartition(num_partitions)
+    #use coalesce(num_partitions) instead
+    #use care when calling .join()
+    #use broadcast()      
+    # depending on use case, may not need to limit it at all  
+#Broadcasting - provides a copy of an object to each worker
+    #if each worker has its own copy, there is less need for communication between nodes
+    #limits data shuffles
+    #will be able to finish some tasks independently
+    #can drastically speed up .join() operations
+from pyspark.sql.functions import broadcast
+combined_df = df_1.join(broadcast(df_2))
+
+#Exercises:
+# Join the flights_df and aiports_df DataFrames
+normal_df = flights_df.join(airports_df, \
+    flights_df["Destination Airport"] == airports_df["IATA"] )
+
+# Show the query plan
+normal_df.explain()
+
+# Import the broadcast method from pyspark.sql.functions
+from pyspark.sql.functions import broadcast
+
+# Join the flights_df and airports_df DataFrames using broadcasting
+broadcast_df = flights_df.join(broadcast(airports_df), \
+    flights_df["Destination Airport"] == airports_df["IATA"] )
+
+# Show the query plan and compare against the original
+broadcast_df.explain()
+
+start_time = time.time()
+# Count the number of rows in the normal DataFrame
+normal_count = normal_df.count()
+normal_duration = time.time() - start_time
+
+start_time = time.time()
+# Count the number of rows in the broadcast DataFrame
+broadcast_count = broadcast_df.count()
+broadcast_duration = time.time() - start_time
+
+# Print the counts and the duration of the tests
+print("Normal count:\t\t%d\tduration: %f" % (normal_count, normal_duration))
+print("Broadcast count:\t%d\tduration: %f" % (broadcast_count, broadcast_duration))
