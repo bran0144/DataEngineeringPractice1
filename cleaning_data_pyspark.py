@@ -180,9 +180,7 @@ voter_df.show()
 #.when()
 df.select(df.Name, df.Age, F.when(df.Age >= 18, "Adult"))
     #this adds a new column and puts "adult" in the values that evaluate to True (column is unnamed)
-df.select(df.Name, df.Age, 
-    when(df.Age>= 18, "Adult")
-    when(df.Age < 18, "Minor"))
+df.select(df.Name, df.Age, F.when(df.Age>= 18, "Adult").when(df.Age < 18, "Minor"))
     # can chain .when clauses - I don't think this is correct syntax
 #.otherwise() - like else - can only have 1 otherwise, but many when clauses
 df.select(df.Name, df.Age, 
@@ -359,9 +357,9 @@ print("Time to run: %f" % (time.time() - start_time_b))
 
 #Cluster sizing tips
 # to read configuration settings:
-spark.conf.get(<configuration name>)
+spark.conf.get('configuration name')
 # to write configs:
-spark.conf.set(<configuration name>)
+spark.conf.set('configuration name')
 # spark deployment options:
     #single node
     #standalone
@@ -463,3 +461,110 @@ broadcast_duration = time.time() - start_time
 # Print the counts and the duration of the tests
 print("Normal count:\t\t%d\tduration: %f" % (normal_count, normal_duration))
 print("Broadcast count:\t%d\tduration: %f" % (broadcast_count, broadcast_duration))
+
+#Data Pipelines
+    #set of steps to process data from source(s) to final output
+    #can span many systems
+    #inputs > transformations > (validation, analysis) > outputs
+    #input - CSV, JSON, web services, db's
+    #transformations - add columns, filter rows, drop nulls, calculations
+    #output - CSV, Parquet, db
+    #validation - checks that data is as we would like it
+    #Analysis - calculations user would like (counts, etc.)
+schema = StructType([StructField('name', StringType(), False), StructField('age', StringType(), False)
+])  
+df = spark.read.format('csv').load('datafile').schema(schema)
+df = df.withColumn('id', monotonoically_increasing_id())
+...
+df.write.parquuet('outdata.parquet')
+df.write.json('outdata.json')
+
+# Import the data to a DataFrame
+departures_df = spark.read.csv('2015-departures.csv.gz', header=True)
+
+# Remove any duration of 0
+departures_df = departures_df.filter(departures_df[3] > 0)
+
+# Add an ID column
+departures_df = departures_df.withColumn('id', F.monotonically_increasing_id())
+
+# Write the file out to JSON format
+departures_df.write.json('output.json', mode='overwrite')
+
+#How to parse unconventional data
+    #common issues:
+        #incorrect data
+        #commented lines
+        #headers
+        #nested structures with different delimiters
+        #non-regular data
+#Stanford ImageNet annotations example (dog breeds)
+# Spark's CSV parser
+    # automatically removes blank lines
+    # comments can be removed with an optional argument
+df1 = spark.read.csv('datafile.csv', comment='#')
+    #headers defined via argument
+    #ignored if a schema is defined
+df1 = spark.read.csv('datafile.csv', header=True)
+#Automatic column creation
+    # automatically creates columns in a DF based on sep argument
+df1 = spark.read.csv('datafile.csv', sep=',')
+    #defaults to ,
+    #can still successfully parse if sep is not in string
+df1 = spark.read.csv('datafile.csv', sep="*")
+    #stores data in column defaulting to _c0
+    #allows you to properly handle nested separators
+
+#Exercises
+# Import the file to a DataFrame and perform a row count
+annotations_df = spark.read.csv('annotations.csv.gz', sep='|')
+full_count = annotations_df.count()
+
+# Count the number of rows beginning with '#'
+comment_count = annotations_df.filter(col('_c0').startswith('#')).count()
+
+# Import the file to a new DataFrame, without commented rows
+no_comments_df = spark.read.csv('annotations.csv.gz', sep='|', comment='#')
+
+# Count the new DataFrame and verify the difference is as expected
+no_comments_count = no_comments_df.count()
+print("Full count: %d\nComment count: %d\nRemaining count: %d" % (full_count, comment_count, no_comments_count))
+
+# Split _c0 on the tab character and store the list in a variable
+tmp_fields = F.split(annotations_df['_c0'], '\t')
+
+# Create the colcount column on the DataFrame
+annotations_df = annotations_df.withColumn('colcount', F.size(tmp_fields))
+
+# Remove any rows containing fewer than 5 fields
+annotations_df_filtered = annotations_df.filter(~ (annotations_df["colcount"] < 5))
+
+# Count the number of rows
+final_count = annotations_df_filtered.count()
+print("Initial count: %d\nFinal count: %d" % (initial_count, final_count))
+
+# Split the content of _c0 on the tab character (aka, '\t')
+split_cols = F.split(annotations_df['_c0'], '\t')
+
+# Add the columns folder, filename, width, and height
+split_df = annotations_df.withColumn('folder', split_cols.getItem(0))
+split_df = split_df.withColumn('filename', split_cols.getItem(1))
+split_df = split_df.withColumn('width', split_cols.getItem(2))
+split_df = split_df.withColumn('height', split_cols.getItem(3))
+
+# Add split_cols as a column
+split_df = split_df.withColumn('split_cols', split_cols)
+
+def retriever(cols, colcount):
+  # Return a list of dog data
+  return cols[4:colcount]
+
+# Define the method as a UDF
+udfRetriever = F.udf(retriever, ArrayType(StringType()))
+
+# Create a new column using your UDF
+split_df = split_df.withColumn('dog_list', udfRetriever(split_df.split_cols, split_df.colcount))
+
+# Remove the original column, split_cols, and the colcount
+split_df = split_df.drop('_c0').drop('split_cols').drop('colcount')
+
