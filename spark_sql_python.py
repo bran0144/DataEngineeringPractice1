@@ -58,6 +58,7 @@ df.select('train_id', 'station').show(5)
 #using dot notation
 df.select(df.train_id, df.station)
 #using col
+from _typeshed import FileDescriptor
 from pyspark.sql.functions import col
 df.select(col('train_id'), col('station'))
 #to rename a column
@@ -402,3 +403,310 @@ print("table1 is cached: ", spark.catalog.isCached('table1'))
 spark.catalog.uncacheTable('table1')
 print("table1 is cached: ", spark.catalog.isCached('table1'))
 
+#Spark UI
+# Spark Task - unit of execution that runs on a single cpu
+# Spark Stage - group of tasks that perform the same computation in parallel , typically on a different 
+# subset of the data
+# Spark Job - computation triggered by an action, sliced into one or more stages
+# Will be found at localhost:4040 (if in use, try 4041, 4042, 4043)
+# 6 tabs - jobs, stages, storage, environment, executors, SQL
+#spark.catalog.dropTempView(‘table1’) - removes temporary table from catalog
+#Spark Catalog - 
+# spark.catalog.listTables() - lists tables that exist and their properties
+# UI Storage Tab - shows where data partitions exist (in memory, on disk, across a cluster, at the snapshot in time)
+# Stages are presented in reverse chronological order
+
+# # Logging
+# import logging
+# logging.basicConfig(stream=sys.std.out, level=logging.INFO, 
+# format=‘%(asctime)s - %(levelname)s - %(message)s’)
+# logging.info(“Hello %s, “world”)
+# logging.debug(“Hello, take %d”, 2)
+
+# Debugging with lazy evaluation and distributed execution can be challenging
+# Using a timer to prove stealth loss of CPU
+t = timer()
+t.elasped()
+t.reset()
+t.elapsed()
+
+class timer:
+    start_time = time.time()
+    step = 0
+
+def elapsed(self, reset=True):
+    self.step += 1
+    print(“%d. Elapsed: %.1f sec %s”
+    % (self.step, time.time() - self.start_time))
+    if reset:
+        self.reset()
+def reset(self):
+    self.start_time = time.time()
+
+# import logging
+# logging.basicConfig(stream=sys.std.out, level=logging.INFO, 
+# format=‘%(asctime)s - %(levelname)s - %(message)s’)
+# t = timer()
+# logger.info("NO action here.”)
+# t.elapsed()
+# logging.debug(“df has %d rows.” df.count())
+# t.elapsed()
+
+# Disable actions to prevent loss
+# ENABLED = False
+# t = timer()
+# logging.info("NO action here.”)
+# t.elapsed()
+# If ENABLED:
+# logging.info(“df has %d rows.” df.count())
+# t.elapsed()
+
+# Exercises:
+
+# Log columns of text_df as debug message
+logging.debug("text_df columns: %s", text_df.columns)
+
+# Log whether table1 is cached as info message
+logging.info("table1 is cached: %s", spark.catalog.isCached(tableName="table1"))
+
+# Log first row of text_df as warning message
+logging.warning("The first row of text_df:\n %s", text_df.first())
+
+# Log selected columns of text_df as error message
+logging.error("Selected columns: %s", text_df.select("id", “word"))
+
+# Uncomment the 5 statements that do NOT trigger text_df
+logging.debug("text_df columns: %s", text_df.columns)
+logging.info("table1 is cached: %s", spark.catalog.isCached(tableName="table1"))
+# logging.warning("The first row of text_df: %s", text_df.first())
+logging.error("Selected columns: %s", text_df.select("id", "word"))
+logging.info("Tables: %s", spark.sql("show tables").collect())
+logging.debug("First row: %s", spark.sql("SELECT * FROM table1 limit 1"))
+# logging.debug("Count: %s", spark.sql("SELECT COUNT(*) AS count FROM table1”).collect())
+
+# EXPLAIN SELECT * FROM table1
+# Returns a query plan 
+df = sqlContext.read.load(‘/temp/df.parquet’)
+df.registerTempTable(‘df’)
+spark.sql(‘EXPLAIN SELECT * FROM df’).first()
+#Can also run 
+df.explain() on df’s
+
+spark.sql(“SELECT * FROM df”).explain()
+
+# Words sorted by frequency query
+# SELECT word, COUNT(*) AS count
+# FROM df
+# GROUP BY word
+# ORDER BY count DESC
+
+df.groupBy(‘word’).count().sort(desc(‘count’)).explain()
+
+# Exercises:
+
+# Run explain on text_df
+text_df.explain()
+
+# Run explain on "SELECT COUNT(*) AS count FROM table1" 
+spark.sql("SELECT COUNT(*) AS count FROM table1").explain()
+
+# Run explain on "SELECT COUNT(DISTINCT word) AS words FROM table1"
+spark.sql("SELECT COUNT(DISTINCT word) AS words FROM table1”).explain()
+
+# Extract Transform Select
+
+# Extraction involves extracting features from raw data. Transformation involves scaling, converting, or 
+# modifying features. Selection obtains a subset of features.
+
+From pyspark.sql.functions import split, explode, length
+df.where(length(‘sentence’) == 0)
+UDF - user defined function
+
+From pyspark.sql.functions import udf
+From pyspark.sql.types import BooleanType
+short_udf = udf(lambda x: True if not x or len(x) < 10 else False, BooleanType())
+
+df.select(short_udf(‘testdata’).alias(‘is_short)).show(3)
+
+From pyspark.sql.types import StringType, IntegerType, FloatType, ArrayType
+df3.select(‘word array’, in_udf(‘word array’).alias(‘without endword)).show(5, truncate=30)
+
+in_udf = udf(lambda x: x[0:len(x)-1] if x and len(x) > 1
+else [],
+ArrayType(StringType()))
+
+# Sparse vector format
+# Indices
+# Values
+# Array example [1.0, 0.0, 0.0, 3.0]
+# Sparse vector example (4, [0,3], [1.0, 3.0])
+
+# Working with vector data
+# hasattr(x, “toArray”)
+# x.numNonzeros())
+
+# Returns true if the value is a nonempty vector
+nonempty_udf = udf(lambda x:  
+    True if (x and hasattr(x, "toArray") and x.numNonzeros())
+    else False, BooleanType())
+
+# Returns first element of the array as string
+s_udf = udf(lambda x: str(x[0]) if (x and type(x) is list and len(x) > 0)
+    else '', StringType())
+
+# UDF removes items in TRIVIAL_TOKENS from array
+rm_trivial_udf = udf(lambda x:
+                     list(set(x) - TRIVIAL_TOKENS) if x
+                     else x,
+                     ArrayType(StringType()))
+
+# Remove trivial tokens from 'in' and 'out' columns of df2
+df_after = df_before.withColumn('in', rm_trivial_udf('in'))\
+                    .withColumn('out', rm_trivial_udf('out'))
+
+# Show the rows of df_after where doc contains the item '5'
+df_after.where(array_contains('doc','5')).show()
+
+#Feature data for classification
+#creating a udf that gets first element of array and converts it to an int
+from pyspark.sql.functions import udf
+from pyspark.sql.types import IntegerType
+bad_udf = udf(lambda x:
+    x.indices[0]
+    if (x and hasattr(x, "toArray") and x.numNonzeros())
+    else 0,
+    IntegerType())
+
+try:
+    df.select(bad_udf('outvec').alias('label')).first()
+except Exception as e:
+    print(e.__class__)
+    print(e.errmsg)
+
+# Need to cast into an int first
+first_udf = udf(lambda x:
+    int(x.indices[0])
+    if (x and hasattr(x, "toArray") and x.numNonzeros())
+    else 0,
+    IntegerType())
+
+df.withColumn('label', k_udf('outvec')).drop('outvec').show(3)
+
+# Count vectorizer
+    #feature extractor
+    #its input is an array of strings
+    #output is a vector
+from spark.ml.feature improt CountVectorizer
+cv = CountVectorizer(inputCol='words', outputCol='features')
+model = cv.fit(df)
+result = model.transform(df)
+print(result)
+
+#Exercises
+# Selects the first element of a vector column
+first_udf = udf(lambda x:
+            float(x.indices[0]) 
+            if (x and hasattr(x, "toArray") and x.numNonzeros())
+            else 0.0,
+            FloatType())
+
+# Apply first_udf to the output column
+df.select(first_udf("output").alias("result")).show(5)
+
+# Add label by applying the get_first_udf to output column
+df_new = df.withColumn('label', get_first_udf('output'))
+
+# Show the first five rows 
+df_new.show(5)
+
+# Transform df using model
+result = model.transform(df.withColumnRenamed('in', 'words'))\
+        .withColumnRenamed('words', 'in')\
+        .withColumnRenamed('vec', 'invec')
+result.drop('sentence').show(3, False)
+
+# Add a column based on the out column called outvec
+result = model.transform(result.withColumnRenamed('out', 'words'))\
+        .withColumnRenamed('words', 'out')\
+        .withColumnRenamed('vec', 'outvec')
+result.select('invec', 'outvec').show(3, False)	
+
+#Text Classification
+#this method does not look at word order for predictive text
+#Selecting the data
+df_true = df.where("endword in ('she', 'he', 'hers', ' his', 'her', 'him')")
+    .withColumn('label', lit(1))
+    #will return a 1 if endword is in the set of pronouns listed
+df_false = df.where("endword not in ('she', 'he', 'hers', ' his', 'her', 'him')")
+    .withColumn('label', lit(0))
+#Combine these to df and we have training data
+df_examples = df_true.union(df_false)
+df_train, df_eval = df_examples.randomSplit((0.60, 0.40), 42)
+#Use logistic regression
+from pyspark.ml.classification import LogisticRegression
+logistic = LogisticRegression(maxIter=50, regParam=0.6, elasticNetParam=0.3)
+model  = logistic.fit(df_train)
+print("Training iterations: ", model.summary.totalIterations)
+
+#Exercises:
+# Import the lit function
+from pyspark.sql.functions import lit
+
+# Select the rows where endword is 'him' and label 1
+df_pos = df.where("endword = 'him'")\
+           .withColumn('label', lit(1))
+
+# Select the rows where endword is not 'him' and label 0
+df_neg = df.where("endword <> 'him'")\
+           .withColumn('label', lit(0))
+
+# Union pos and neg in equal number
+df_examples = df_pos.union(df_neg.limit(df_pos.count()))
+print("Number of examples: ", df_examples.count())
+df_examples.where("endword <> 'him'").sample(False, .1, 42).show(5)
+
+# Split the examples into train and test, use 80/20 split
+df_trainset, df_testset = df_examples.randomSplit((0.80, 0.20), 42)
+
+# Print the number of training examples
+print("Number training: ", df_trainset.count())
+
+# Print the number of test examples
+print("Number test: ", df_testset.count())
+
+# Import the logistic regression classifier
+from pyspark.ml.classification import LogisticRegression
+
+# Instantiate logistic setting elasticnet to 0.0
+logistic = LogisticRegression(maxIter=100, regParam=0.4, elasticNetParam=0.0)
+
+# Train the logistic classifer on the trainset
+df_fitted = logistic.fit(df_trainset)
+
+# Print the number of training iterations
+print("Training iterations: ", df_fitted.summary.totalIterations)
+
+#Predicting and evalutation
+predicted = df_trained.transform(df_test)
+#prediction column : double
+#probability column: vector of length two
+
+x =  predicted.first
+print("Right!" if x.label == int(x.prediction) else "Wrong")
+
+#evaluating with AUC
+model_stats = model.evaluate(df_eval)
+type(model_stats)
+print("\nPerformance: %.2f" model_stats.areaUnderROC)
+
+#Exercises:
+# Apply the model to the test data
+predictions = df_fitted.transform(df_testset).select(fields)
+
+# Print incorrect if prediction does not match label
+for x in predictions.take(8):
+    print()
+    if x.label != int(x.prediction):
+        print("INCORRECT ==> ")
+    for y in fields:
+        print(y,":", x[y])
