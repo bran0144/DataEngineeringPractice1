@@ -352,3 +352,204 @@ first, last = 'firstname', 'surname'
 print([(laureate[first], laureate[last]) for laureate in db.laureates.find(criteria)])
 
 #Projection
+#reducing data to few dimensions
+#includes only prizes.affiliations excludes _id
+docs = db.laureates.find(filter={},
+        projection={'prizes.affiliations': 1, '_id': 0})
+#for each field we want to include in the projection, we give it a value of 1
+#_id is included by default
+#data type is Cursor
+#you can conert to a list and slice
+list(docs)[:3]
+#what about missing fields?
+#rather than return an error, mongo returns a document without those fields
+docs = db.laureates.find(
+    filter={'gender': 'org'},
+    projection=['bornCountry', 'firstname'])
+#only projected fields that exist are returned
+#simple aggregation
+docs = db.laureates.find({}, ['prizes'])
+n_prizes = 0
+for doc in docs:
+    n_prizes += len(doc['prizes'])
+print(n_prizes)
+
+#if you use a projection than you only have to iterate through that field
+#using a comprehension
+sum([len(doc['prizes']) for doc in docs])
+
+#exercises:
+db.laureates.find(filter={'category': 'physics', 'year':'1903'}, projection=['firstname', 'surname'])
+
+# Find laureates whose first name starts with "G" and last name starts with "S"
+docs = db.laureates.find(
+       filter= {"firstname" : {"$regex" : "^G"},
+                  "surname" : {"$regex" : "^S"}  })
+# Print the first document 
+print(docs[0])
+
+# Use projection to select only firstname and surname
+docs = db.laureates.find(
+        filter= {"firstname" : {"$regex" : "^G"},
+                 "surname" : {"$regex" : "^S"}  },
+	projection=['firstname', 'surname']  )
+
+# Print the first document 
+print(docs[0])
+
+# Use projection to select only firstname and surname
+docs = db.laureates.find(
+       filter= {"firstname" : {"$regex" : "^G"},
+                "surname" : {"$regex" : "^S"}  },
+   projection= ["firstname", "surname"]  )
+
+# Iterate over docs and concatenate first name and surname
+full_names = [doc["firstname"] + " " + doc["surname"] for doc in docs]
+
+# Print the full names
+print(full_names)
+
+# Save documents, projecting out laureates share
+prizes = db.prizes.find({}, ['laureates.share'])
+
+# Iterate over prizes
+for prize in prizes:
+# Initialize total share
+    total_share = 0
+# Iterate over laureates for the prize
+for laureate in prize["laureates"]:
+# add the share of the laureate to total_share
+    total_share += 1 / float(laureate["share"])
+# Print the total share 
+    print(total_share) 
+
+#Sorting
+#can sort post-query with Python, which may be performant (if stored as local cache)
+docs = list(db.prizes.find({"category": "physics"}, ["year"]))
+print([doc["year"] for doc in docs][:5])
+#to sort the documents
+from operator import itemgetter
+docs = sorted(docs, key=itemgetter("year"))
+print([doc["year"] for doc in docs][:5])
+#to sort in reverse (descending order)
+docs = sorted(docs, key=itemgetter("year"), reverse=True)
+print([doc["year"] for doc in docs][:5])
+#sorting in query (ascending)
+cursor = db.prizes.find({'category': 'physics'}, ['year'], sort=[('year', 1)])
+print([doc["year"] for doc in cursor][:5])
+#sorting in query (descending)
+cursor = db.prizes.find({'category': 'physics'}, ['year'], sort=[('year', -1)])
+print([doc["year"] for doc in cursor][:5])
+
+#primary and secondary sorting
+for doc in db.prizes.dinf:
+    {'year': {'$gt': '1966', '$lt': '1970'}},
+    ['catefory', 'year'],
+    sort=[('year, 1'), ('category', -1)]
+    print('{year} {category'.format(**doc))
+
+#if you sort in MongoDB shell, you use Javascript
+#JS objects retain key order as entered
+#pymongo requires a list of tuples instead of a dictionary (it wants to retain order)
+#Exercises:
+docs = list(db.laureates.find(
+{"born": {"$gte": "1900"}, "prizes.year": {"$gte": "1954"}},
+{"born": 1, "prizes.year": 1, "_id": 0},
+sort=[("prizes.year", 1), ("born", -1)]))
+for doc in docs[:5]:
+    print(doc)
+
+from operator import itemgetter
+
+def all_laureates(prize): 
+# sort the laureates by surname
+    sorted_laureates = sorted(prize['laureates'], key=itemgetter('surname'))
+# extract surnames
+    surnames = [laureate['surname'] for laureate in sorted_laureates]
+# concatenate surnames separated with " and " 
+    all_names = " and ".join(surnames)
+    return all_names
+
+# test the function on a sample doc
+print(all_laureates(sample_prize))
+
+# find physics prizes, project year and first and last name, and sort by year
+docs = db.prizes.find(
+filter= {'category': 'physics'}, 
+projection= ['year', 'laureates.firstname', 'laureates.surname'], 
+sort= [("year", 1)])
+
+# print the year and laureate names (from all_laureates)
+for doc in docs:
+    print("{year}: {names}".format(year=doc['year'], names=all_laureates(doc)))
+
+# original categories from 1901
+original_categories = db.prizes.distinct('category', {'year': '1901'})
+print(original_categories)
+
+# project year and category, and sort
+docs = db.prizes.find(
+filter={},
+projection = {'year': 1, 'category': 1, '_id': 0},
+sort=[('year', -1),('category', 1)]
+)
+
+#print the documents
+for doc in docs:
+    print(doc)
+
+#Indexes - speed up queries
+#can index fields using the values of the fields
+#when to use 
+#queries with high specificity 
+#large documents
+#large collections
+#Guaging performance before indexing
+#can use %%timeit in Jupyter notebook 
+#create index method
+db.prizes.create_index([('year', 1)])
+#direction (1 is ascending, -1 is descending)
+docs = list(db.prizes.find({'year': "1901"}))
+#compound index (multi-field)
+db.prizes.create_index([('category', 1), ('year', 1)])
+#index covering a query with projection (this can lead to big performance gains for queries used often)
+list(db.prizes.find({'category': 'economics'}, {'year': 1, '_id': 0}))
+#index covering a query with projection and sorting
+db.prizes.find({'category': 'economics'},
+{'year':1, '_id': 0},
+sort=[('year', 1)])
+#index information -helps confirm which indexes exist
+db.laureates.index_information()
+#explain method - will show indexes
+db.laureates.find({'firstname': 'Marie'}, {'bornCountry': 1, '_id':0}).explain()
+
+#exercies:
+# Specify an index model for compound sorting
+index_model = [("category", 1), ("year", -1)]
+db.prizes.create_index(index_model)
+
+# Collect the last single-laureate year for each category
+report = ""
+for category in sorted(db.prizes.distinct("category")):
+    doc = db.prizes.find_one(
+    {'category': category, "laureates.share": "1"},
+    sort=[('year', -1)]
+)
+report += "{category}: {year}\n".format(**doc)
+
+print(report)
+
+from collections import Counter
+
+# Ensure an index on country of birth
+db.laureates.create_index([("bornCountry", 1)])
+
+# Collect a count of laureates for each country of birth
+n_born_and_affiliated = {
+    country: db.laureates.count_documents({
+    "bornCountry": country,
+    "prizes.affiliations.country": country})}
+for country in db.laureates.distinct("bornCountry"):
+    five_most_common = Counter(n_born_and_affiliated).most_common(5)
+    print(five_most_common)
+
