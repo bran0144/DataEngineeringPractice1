@@ -553,3 +553,131 @@ for country in db.laureates.distinct("bornCountry"):
     five_most_common = Counter(n_born_and_affiliated).most_common(5)
     print(five_most_common)
 
+#Limits
+for doc in db.prizes.find({}, ['laureates.share']):
+    share_is_three = [laureate['share']== "3"
+        for laureate in doc['laureates']]
+    assert all(share_is_three) or not any (share_is_three)
+
+for doc in db.prizes.find({'laureates.share': "3"}):
+    print('{year} {category}'.format(**doc))
+#this limits the number of results
+for dob in db.prizes.find({'laureates.share'}, limit=3):
+    print('{year} {category}'.format(**doc))
+#can also skip
+for dob in db.prizes.find({'laureates.share'}, skip=3, limit=3):
+    print('{year} {category}'.format(**doc))
+#can chain methods to a cursor (sort, skip, limit)
+for doc in db.prizes.find({'laureates.share': '3'}).limit(3):
+    print('{year} {category}'.format(**doc))
+#with both skip and limit
+for doc in db.prizes.find({'laureates.share': '3'}).skip(3).limit(3):
+    print('{year} {category}'.format(**doc))
+#can alter the sorting on a cursor
+for doc in db.prizes.find({'laureates.share': '3'}).sort([('year',1)]).skip(3).limit(3):
+    print('{year} {category}'.format(**doc))
+#simpler sort of sorts
+cursor1 = (db.prizes.find({'laureates.share': '3'}).skip(3).limit(3).sort([('year', 1)]))
+cursor2 = (db.prizes.find({'laureates.share': '3'}).skip(3).limit(3).sort('year', 1))
+cursor3 = (db.prizes.find({'laureates.share': '3'}).skip(3).limit(3).sort('year'))
+#all of these yield the same sequence of documents
+#find_one will do something different
+doc = db.prizes.find_one({'laureates.share': '3'}, skip=3, sort=[('year', 1)])
+print('{year} {category}'.format(**doc))
+#can't use cursor method with find_one
+#if you use limit twice, the second one overrides the first
+
+#exercises
+from pprint import pprint
+
+# Fetch prizes with quarter-share laureate(s)
+filter_ = {'laureates.share': '4'}
+
+# Save the list of field names
+projection = ['category', 'year', 'laureates.motivation']
+
+# Save a cursor to yield the first five prizes
+cursor = db.prizes.find(filter_, projection).sort('year').limit(5)
+pprint(list(cursor))
+
+# Write a function to retrieve a page of data
+def get_particle_laureates(page_number=1, page_size=3):
+    if page_number < 1 or not isinstance(page_number, int):
+        raise ValueError("Pages are natural numbers (starting from 1).")
+    particle_laureates = list(
+        db.laureates.find(
+            {'prizes.motivation': {'$regex': "particle"}},
+            ["firstname", "surname", "prizes"])
+        .sort([('prizes.year', 1), ('surname', 1)])
+        .skip(page_size * (page_number - 1))
+        .limit(page_size))
+    return particle_laureates
+
+# Collect and save the first nine pages
+pages = [get_particle_laureates(page_number=page) for page in range(1,9)]
+pprint(pages[0])
+
+#Aggregation stages
+#queries have implicit stages
+cursor = db.laureates.find(filter={'bornCountry': 'USA'},
+            projection={'prizes.year': 1},
+            limit=3)
+for doc in cursor:
+    print(doc['prizes'])
+#aggregation pipeline is a list, a sequence of stages
+#same output as aggregation
+cursor = db.laureates.aggregate([
+    {'$match': {'bornCountry': 'USA'}},
+    {'$project': {'prizes.year': 1}},
+    {'$limit': 3}
+])
+for doc in cursor:
+    print(dob['prizes'])
+#can sort and skip too
+from collections import OrderedDict
+
+cursor = db.laureates.aggregate([
+    {'$match': {'bornCountry': 'USA'}},
+    {'$project': {'prizes.year': 1, '_id': 0}},
+    {'$sort': OrderedDict([('prizes.year', 1)])},
+    {'$skip': 1},
+    {'$limit': 3}
+])
+#can count
+list(db.laureates.aggregate([
+    {'$match': {'bornCountry': 'USA'}},
+    {'$count': 'n_USA-born-laureastes'}
+]))
+#can do it this way too
+db.laureates.count_documents({'bornCountry': 'USA'})
+
+#Exercises:
+# Translate cursor to aggregation pipeline
+pipeline = [
+    {'$match': {'gender': {'$ne': 'org'}}},
+    {'$project': {'bornCountry': 1, 'prizes.affiliations.country': 1}},
+    {'$limit': 3}
+]
+
+for doc in db.laureates.aggregate(pipeline):
+    print("{bornCountry}: {prizes}".format(**doc))
+
+from collections import OrderedDict
+from itertools import groupby
+from operator import itemgetter
+
+original_categories = set(db.prizes.distinct("category", {"year": "1901"}))
+
+# Save an pipeline to collect original-category prizes
+pipeline = [
+    {"$match": {"category": {"$in": list(original_categories)}}},
+    {"$project": {"category": 1, "year": 1}},
+    {"$sort": OrderedDict([("year", -1)])}
+]
+cursor = db.prizes.aggregate(pipeline)
+for key, group in groupby(cursor, key=itemgetter("year")):
+    missing = original_categories - {doc["category"] for doc in group}
+    if missing:
+        print("{year}: {missing}".format(year=key, missing=", ".join(sorted(missing))))
+
+#aggregation operators and grouping
