@@ -140,3 +140,57 @@ FROM airports
 WHERE airport_code IN ('ORD', 'MDW')
 
 Comparing similarity between strings
+SOUNDEX DIFFERENCE functions
+SOUNDEX - phonetic algorithm - returns four character code to evaluate similarity between strings based on pronunciation
+Exceptions - need to be careful because some words may return same code, but are different
+
+SELECT DISTINCT A1.airport_state
+FROM airports A1
+INNER JOIN airports A2 
+    ON SOUNDEX(A1.airport_state) = SOUNDEX(A2.airport_state)
+    AND A1.airport_state <> A2.airport_state
+
+this doesn't work correctly - only checks the first words, so we need to omit spaces:
+SELECT DISTINCT A1.airport_state
+FROM airports A1
+INNER JOIN airports A2 
+    ON SOUNDEX(REPLACE(A1.airport_state, ' ', '')) = SOUNDEX(REPLACE(A2.airport_state, ' ', ''))
+    AND A1.airport_state <> A2.airport_state
+
+DIFFERENCE
+compares two SOUNDEX values and returns a value from 0 to 4
+0 = little or no similarity
+4 = high similarity
+
+SELECT DISTINCT A1.airport_state
+FROM airports A1
+INNER JOIN airports A2 
+    ON DIFFERENCE(REPLACE(A1.airport_state, ' ', ''), REPLACE(A2.airport_state, ' ', '')) = 4
+    AND A1.airport_state <> A2.airport_state
+
+SELECT 
+    -- First name and surname of the statisticians
+	DISTINCT S1.statistician_name, S1.statistician_surname
+-- Join flight_statistics with itself
+FROM flight_statistics S1 INNER JOIN flight_statistics S2 
+	-- The SOUNDEX result of the first name and surname have to be the same
+	ON SOUNDEX(S1.statistician_name) = SOUNDEX(S2.statistician_name) 
+	AND SOUNDEX(S1.statistician_surname) = SOUNDEX(S2.statistician_surname) 
+-- The texts of the first name or the texts of the surname have to be different
+WHERE S1.statistician_name <> S2.statistician_name
+	OR S1.statistician_surname <> S2.statistician_surname
+
+SELECT 
+    -- First name and surnames of the statisticians
+	DISTINCT S1.statistician_name, S1.statistician_surname
+-- Join flight_statistics with itself
+FROM flight_statistics S1 INNER JOIN flight_statistics S2 
+	-- The DIFFERENCE of the first name and surname has to be equals to 4
+	ON DIFFERENCE(S1.statistician_name, S2.statistician_name) = 4
+	AND DIFFERENCE(S1.statistician_surname, S2.statistician_surname) = 4
+-- The texts of the first name or the texts of the surname have to be different
+WHERE S1.statistician_name <> S2.statistician_name
+	OR S1.statistician_surname <> S2.statistician_surname
+
+Missing data
+
