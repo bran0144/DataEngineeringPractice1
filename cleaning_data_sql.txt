@@ -1,0 +1,142 @@
+FIlling numbers with leading zeros - using REPLICATE and LEN
+REPLICATE(string, integer)   - repeats a string a certain number of times
+REPLICATE('0', 9 - LEN(registration_code))
+SQL statement to concatenate with leading zeros:
+
+SELECT  REPLICATE('0', 9 - LEN(registration_code)) + registration_code AS registration_code
+FROM flight_statistics
+
+OR if your SQL is newer than SQL Server 2012, use CONCAT:
+
+SELECT CONCAT(REPLICATE('0', 9 - LEN(registration_code)) + registration_code AS registration_code)
+FROM flight_statistics
+
+OR you can use FORMAT function (since SQL Server 2012)
+
+SELECT FORMAT(CAST(registration_code AS INT), '000000000') AS registration_code
+FROM flight_statistics;
+
+Exercises:
+
+SELECT 
+	-- Concat the strings
+	CONCAT(
+		carrier_code, 
+		' - ', 
+      	-- Replicate zeros
+		REPLICATE('0', 9 - LEN(registration_code)), 
+		registration_code, 
+		', ', 
+		airport_code)
+	AS registration_code
+FROM flight_statistics
+-- Filter registers with more than 100 delays
+WHERE delayed > 100
+
+SELECT 
+    -- Concat the strings
+	CONCAT(
+		carrier_code, 
+		' - ', 
+        -- Format the code
+		FORMAT(CAST(registration_code AS INT), '0000000'),
+		', ', 
+		airport_code
+	) AS registration_code
+FROM flight_statistics
+-- Filter registers with more than 100 delays
+WHERE delayed > 100
+
+Cleaning messy strings
+Removing additional spaces using TRIM
+Available since SQL Server 2017
+TRIM removes any specified character from start and end of string
+Removes space if we don't specify a character
+SELECT code, TRIM(name) AS name FROM carriers
+
+For older versions, you can use RTRIM(trailing spaces) and LTRIM(leading spaces)
+Can combine
+
+SELECT code LTRIM(RTRIM(name)) AS name FROM carriers
+
+Unifying strings
+If state is displayed differently, use Replicate
+replaces all occurences of a specified string with another string
+REPLACE(string_to_replace, occurences, string_replacement)
+case insensitive by default
+Problem: dataset has 'Florida', 'fl', and 'FL' for state
+
+SELECT airport_code, airport_name, airport_city,
+    REPLACE(airport_state, 'FL', 'Florida'),
+    'Floridaorida', 'Florida') AS airport_state
+FROM airports 
+ORDER BY airport_state
+
+OR you can use a case statement:
+SELECT airport_code, airport_name, airport_city,
+    CASE 
+        WHEN airport_state <> 'Florida' THEN REPLACE(airport_state, 'FL', 'Florida')
+        ELSE airport_state
+    END AS airport_state
+FROM airports 
+ORDER BY airport_state
+
+To replace with "FL" string (need REPLACE and UPPPER):
+SELECT airport_code, airport_name, airport_city,
+    UPPER(
+        REPLACE(airport_state, 'Florida', 'FL')
+     ) AS airport_state
+FROM airports 
+ORDER BY airport_state
+
+Exercises:
+SELECT 
+	airport_code,
+	-- Use the appropriate function to remove the extra spaces
+    TRIM(airport_name) AS airport_name,
+	airport_city,
+    airport_state
+-- Select the source table
+FROM airports 
+
+SELECT 
+	airport_code,
+	-- Use the appropriate function to remove the extra spaces
+    LTRIM(RTRIM(airport_name)) AS airport_name,
+	airport_city,
+    airport_state
+-- Select the source table
+FROM airports 
+
+SELECT 
+	airport_code,
+	airport_name,
+    -- Use the appropriate function to unify the values
+    REPLACE(airport_city, 'ch', 'Chicago') AS airport_city,
+	airport_state
+FROM airports  
+WHERE airport_code IN ('ORD', 'MDW')
+
+SELECT airport_code, airport_name, 
+	-- Use the CASE statement
+	CASE
+    	-- Unify the values
+		WHEN airport_city <> 'Chicago' THEN REPLACE(airport_city, 'ch', 'Chicago')
+		ELSE airport_city 
+	END AS airport_city,
+    airport_state
+FROM airports
+WHERE airport_code IN ('ORD', 'MDW')
+
+SELECT 
+	airport_code, airport_name,
+    	-- Convert to uppercase
+    	UPPER(
+            -- Replace 'Chicago' with 'ch'.
+          	REPLACE(airport_city, 'Chicago', 'ch')
+        ) AS airport_city,
+    airport_state
+FROM airports
+WHERE airport_code IN ('ORD', 'MDW')
+
+Comparing similarity between strings
