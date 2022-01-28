@@ -193,4 +193,192 @@ WHERE S1.statistician_name <> S2.statistician_name
 	OR S1.statistician_surname <> S2.statistician_surname
 
 Missing data
+Missing values are represented as NULL but can also be blank
+
+Using IS NOT  NULL to remove NULL
+SELECT * FROM airports
+WHERE airport_state IS NOT NULL
+
+To remove missing values (blank)
+SELECT * FROM airports 
+WHERE airport_state <> ''
+
+To substitute NULL values with specific values:
+SELECT airport_code, airport_name, airport_city ISNULL(airport_state, 'Unknown') AS airport_state
+FROM airports 
+
+TO substitute a value (AVG):
+SELECT registration_code, airport_code, carrier_code
+ISNULL(canceled, (SELECT AVG(canceled) FROM flight_statistics)) AS canceled_fixed
+FROM flight_statistics
+GROUP BY registration_code, airport_code, carrier_code, canceled
+
+TO fill with another value - COALESCE
+SELECT airport_code, airport_city, airport_state, 
+    COALESCE (airport_state, airport_city, 'Unknown') AS airport_state_fixed
+FROM airports
+
+Exercises:
+
+SELECT *
+-- Select the appropriate table
+FROM airports
+-- Exclude the rows where airport_city is NULL
+WHERE airport_city IS NOT NULL
+
+SELECT *
+-- Select the appropriate table
+FROM airports
+-- Return only the rows where airport_city is NULL
+WHERE airport_city IS NULL
+
+SELECT *
+-- Select the appropriate table
+FROM airports
+-- Exclude the rows where airport_city is missing
+WHERE airport_city <> ''
+
+SELECT *
+-- Select the appropriate table
+FROM airports
+-- Return only the rows where airport_city is missing
+WHERE airport_city = ''
+
+SELECT
+  airport_code,
+  airport_name,
+  -- Replace missing values for airport_city with 'Unknown'
+  ISNULL(airport_city, 'Unknown') AS airport_city,
+  -- Replace missing values for airport_state with 'Unknown'
+  ISNULL(airport_state, 'Unknown') AS airport_state
+FROM airports
+
+SELECT
+airport_code,
+airport_name,
+-- Replace the missing values
+COALESCE(airport_city, airport_state, 'Unknown') AS location
+FROM airports
+
+Avoiding duplicate data
+Need to detect duplicate data with ROW_NUMBER()
+SELECT *
+    ROW_NUMBER() OVER (
+        PARTITION BY airport_code, carrier_code, registration_date
+        ORDER BY airport_code, carrier_code, registration_date
+    ) row_num 
+FROM flight_statistics
+
+To get duplicate rows: row_num > 1
+To exclude duplicate rows: row_num = 1
+
+TO get only duplicate rows:
+WITH cte AS (
+    SELECT *,
+        ROW_NUMBER() OVER (
+            PARTITION BY airport_code, carrier_code, registration_date
+            ORDER BY airport_code, carrier_code, registration_date
+        ) row_num 
+    FROM flight_statistics
+)
+SELECT * FROM cte
+WHERE row_num > 1;
+
+To exclude duplicate rows: (just change last line to row_num = 1)
+
+Exercises:
+
+SELECT *,
+	   -- Apply ROW_NUMBER()
+       ROW_NUMBER() OVER (
+         	-- Write the partition
+            PARTITION BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+			ORDER BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+        ) row_num
+FROM flight_statistics
+
+-- Use the WITH clause
+WITH cte AS (
+    SELECT *, 
+        ROW_NUMBER() OVER (
+            PARTITION BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+			ORDER BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+        ) row_num
+    FROM flight_statistics
+)
+SELECT * FROM cte
+-- Get only duplicates
+WHERE row_num > 1;
+
+WITH cte AS (
+    SELECT *, 
+        ROW_NUMBER() OVER (
+            PARTITION BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+			ORDER BY 
+                airport_code, 
+                carrier_code, 
+                registration_date
+        ) row_num
+    FROM flight_statistics
+)
+SELECT * FROM cte
+-- Exclude duplicates
+WHERE row_num = 1;
+
+Dealing with different date formats
+US English (month/day/year)
+04/15/2008
+Spanish (day/month/year)
+15/04/2008
+
+To format dates use CONVERT or FORMAT
+SELECT
+    CONVERT(VARCHAR(11), CAST(entry_date AS DATE), 0) AS '0'
+    CONVERT(VARCHAR(10), CAST(entry_date AS DATE), 1) AS '1'
+    ...
+FROM pilots
+
+FORMAT is more flexible than CONVERT, but slower, so not great for high data volumes
+SELECT FORMAT (CAST(entry_date AS DATE), 'd', 'en-US' ) AS 'US English Result',
+    FORMAT (CAST(entry_date AS DATE), 'd', 'de-de') AS 'German Result',
+    ...
+FROM pilots
+'D' for long dates, 'd' short dates, 'dd/MM/yyyy' for datetimes
+
+Exercises:
+SELECT 
+    airport_code,
+    carrier_code,
+    canceled,
+    -- Convert the registration_date to a DATE and print it in mm/dd/yyyy format
+    CONVERT(VARCHAR(10), CAST(registration_date AS DATE), 101) AS registration_date
+FROM flight_statistics 
+-- Convert the registration_date to mm/dd/yyyy format
+WHERE CONVERT(VARCHAR(10), CAST(registration_date AS DATE), 101) 
+	-- Filter the first six months of 2014 in mm/dd/yyyy format 
+	BETWEEN '01/01/2014' AND '06/30/2014'
+
+SELECT 
+	pilot_code,
+	pilot_name,
+	pilot_surname,
+	carrier_code,
+    -- Convert the entry_date to a DATE and print it in dd/MM/yyyy format
+	FORMAT(CAST(entry_date AS DATE), 'dd/MM/yyyy') AS entry_date
+from pilots
 
