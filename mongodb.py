@@ -681,3 +681,216 @@ for key, group in groupby(cursor, key=itemgetter("year")):
         print("{year}: {missing}".format(year=key, missing=", ".join(sorted(missing))))
 
 #aggregation operators and grouping
+#Field paths
+#expression object {field1: <expression1>, ...}
+db.laureates.aggregate([{'$project': {'prizes.share': 1}}]).next()
+#another way which will print differently
+db.laureates.aggregate([{'$project': {'n_prizes': {'$size': '$prizes'}}}]).next()
+#field path is prizes
+#expression is {'$size': '$prizes'}
+#operator expression is {'$size': '$prizes'}
+#applies the operator to one or more arguments and returns a value
+db.laureates.aggregate([{'$project': {'n_prizes': {'$size': ['$prizes']}}}]).next()
+#returns the same result (can omit the brackets if you have only one parameter)
+db.laureates.aggregate([{'$project': {'solo_winner': {'$in': ['1', 'prizes.share']}}}]).next()
+#implementing .distinct()
+list_1 = db.laureates.distinct('bornCountry')
+list_2 = [doc['_id'] for doc in db.laureates.aggregate([
+    {'$group': {'_id': '$bornCountry'}}
+])]
+set(list_2) - {None} == set(list_1)
+#$group must map _id which must be unique
+#how many prizes have been awarded in total
+list(db.laureates.aggregate([
+    {'$project': {'n_prizes': {'$size': '$priaxes'}}},
+    {'$group': {'_id': None, 'n_prizes_total': {'$sum': '$n_prizes'}}}
+]))
+#this creates one document with the n_prizes_total expression
+#$sum operator acts as an accumulator in $group stage
+#this saves a lot of time and bandwidth for big datasets
+#field paths use $ at the beginning to distinguish them from strings
+#JSON sets are delimited by [] just like lists
+
+#Exercises:
+# Count prizes awarded (at least partly) to organizations as a sum over sizes of "prizes" arrays.
+pipeline = [
+    {'$match': {'gender': "org"}},
+    {"$project": {"n_prizes": {"$size": '$prizes'}}},
+    {"$group": {"_id": None, "n_prizes_total": {"$sum": 'n_prizes'}}}
+]
+
+print(list(db.laureates.aggregate(pipeline)))
+
+from collections import OrderedDict
+
+original_categories = sorted(set(db.prizes.distinct("category", {"year": "1901"})))
+pipeline = [
+    {"$match": {"category": {"$in": original_categories}}},
+    {"$project": {"category": 1, "year": 1}},
+    
+    # Collect the set of category values for each prize year.
+    {"$group": {"_id": "$year", "categories": {"$addToSet": "$category"}}},
+    
+    # Project categories *not* awarded (i.e., that are missing this year).
+    {"$project": {"missing": {"$setDifference": [original_categories, "$categories"]}}},
+    
+    # Only include years with at least one missing category
+    {"$match": {"missing.0": {"$exists": True}}},
+    
+    # Sort in reverse chronological order. Note that "_id" is a distinct year at this stage.
+    {"$sort": OrderedDict([("_id", -1)])},
+]
+for doc in db.prizes.aggregate(pipeline):
+    print("{year}: {missing}".format(year=doc["_id"],missing=", ".join(sorted(doc["missing"]))))
+
+#Array fields with $unwind
+#how to access array elements during aggregation
+list(db.prizes.agggregate([
+    {'$project': {'n_laureates': {'$size': '$laureates'},
+        'year': 1, 'category': 1, '_id': 0}}
+]))
+#returns year, category and total for each (ie three physics prizes in 2018)
+list(db.prizes.agggregate([
+    {'$project': {'n_laureates': {'$size': '$laureates'},
+        'category': 1}},
+    {'$group': {'_id': '$category', 'n_laureates': {'$sum': '$n_laureates'}}},
+    {'$sort': {'n_laureates': -1}}
+]))
+#returns total count of laureates by category (year is removed)
+#How to $unwind
+list(db.prizes.agggregate([
+    {'$unwind': '$laureates'},
+    {'$project': {'_id': 0, 'year': 1, 'category': 1,
+        'laureates.surname': 1, 'laureates.share': 1}},
+    {'$limit': 3}
+]))
+#outputs one document per array element
+#to renormalize
+list(db.prizes.agggregate([
+    {'$unwind': '$laureates'},
+    {'$project': {'year': 1, 'category': 1, 'laureates.id': 1}},
+    {'$group': {'_id': {'$concat': ['$category', ':', '$year']},
+        'laureate_ids': {'$addToSet': '$laureates.id'}}},
+    {'$limit': 5}
+]))
+
+#this unwinds and counts documents
+list(db.prizes.agggregate([
+    {'$unwind': '$laureates'},
+    {'$group': {'_id': '$category', 'n_laureates': {'$sum': 1}}},
+    {'$sort': {'n_laureates': -1}},
+]))
+#$loopup usually accompanies $unwind
+list(db.prizes.agggregate([
+    {'$match': {'category': 'economics'}},
+    {'$unwind': '$laureates'},
+    {'$lookup': {'from': 'laureates', 'foreignField': 'id',
+            'localField': 'laureates.id', 'as': 'laureate_bios'}},
+    {'$unwind': '$laureate_bios'},
+    {'$group': {'_id': None, 'bornCountries': {'$addToSet': '$laureate_bios.bornCountry'}}}
+]))
+#you can do this simpler:
+bornCountries = db.laureates.distinct(
+    'bornCountry', {'prizes.category': 'economics'})
+assert set(bornCountries) == set(agg[0]['bornCountries'])
+
+key_ac = "prizes.affiliations.country"
+key_bc = "bornCountry"
+pipeline = [
+    {"$project": {key_bc: 1, key_ac: 1}},
+
+    # Ensure a single prize affiliation country per pipeline document
+    {'$unwind': "$prizes"},
+    {'$unwind': "$prizes.affiliations"},
+
+    # Ensure values in the list of distinct values (so not empty)
+    {"$match": {key_ac: {'$in': db.laureates.distinct(key_ac)}}},
+    {"$project": {"affilCountrySameAsBorn": {
+        "$gte": [{"$indexOfBytes": ["$"+key_ac, "$"+key_bc]}, 0]}}},
+
+    # Count by "$affilCountrySameAsBorn" value (True or False)
+    {"$group": {"_id": "$affilCountrySameAsBorn",
+                "count": {"$sum": 1}}},
+]
+for doc in db.laureates.aggregate(pipeline): print(doc)
+
+pipeline = [
+    # Unwind the laureates array
+    {"$unwind": "$laureates"},
+    {"$lookup": {
+        "from": "laureates", "foreignField": "id",
+        "localField": "laureates.id", "as": "laureate_bios"}},
+
+    # Unwind the new laureate_bios array
+    {"$unwind": "$laureate_bios"},
+    {"$project": {"category": 1,
+                  "bornCountry": "$laureate_bios.bornCountry"}},
+
+    # Collect bornCountry values associated with each prize category
+    {"$group": {"_id": "$category",
+                "bornCountries": {"$addToSet": "$bornCountry"}}},
+
+    # Project out the size of each category's (set of) bornCountries
+    {"$project": {"category": 1,
+                  "nBornCountries": {"$size": "$bornCountries"}}},
+    {"$sort": {"nBornCountries": -1}},
+]
+for doc in db.prizes.aggregate(pipeline): print(doc)
+
+#addFields to aid analysis
+docs = list(db.laureates.aggregate([ 
+    {'$match': {'died': {'$gt': '1700'}, 'born': {'$gt': '1700'}}},
+    {'$project': {'died': {'$dateFromString': {'dateString': '$died'}},
+            'born': {'$dateFromString': {'dateString': '$born'}}}}
+]))
+#some dob only have a year, so we get an error
+docs = list(db.laureates.aggregate([ 
+    {'$match': {'died': {'$gt': '1700'}, 'born': {'$gt': '1700'}}},
+    {'$addFields': {'bornArray': {'$split': ['$born', '-']},
+                    'diedArray': {'$split': ['$died', '-']}}},
+    {'$addFields': {'born': {'$cond': [
+        {'$in': ['00', '$bornArray']},
+        {'$concat': [{'$arrayElemAt': ['$bornArray', 0]}, '-01-01']},
+    ]}}},
+    {'$project': {'died': {'$dateFromString': {'dateString': '$died'}},
+            'born': {'$dateFromString': {'dateString': '$born'}}}},
+    {'$project': {'years': {'$floor': {'$divide': [
+        {'$subtract': ['$died', '$born']},
+        31557600000
+    ]}}}},
+    {'$bucket': {'groupBy': '$years',
+            'boundaries': list(range(30,120,10))}}
+]))
+for doc in docs: print(doc)
+
+#Exercises:
+pipeline = [
+    # Limit results to people; project needed fields; unwind prizes
+    {"$match": {"gender": {"$ne": "org"}}},
+    {"$project": {"bornCountry": 1, "prizes.affiliations.country": 1}},
+    {"$unwind": "$prizes"},
+  
+    # Count prizes with no country-of-birth affiliation
+    {"$addFields": {"bornCountryInAffiliations": {"$in": ["$bornCountry", "$prizes.affiliations.country"]}}},
+    {"$match": {"bornCountryInAffiliations": False}},
+    {"$count": "awardedElsewhere"},
+]
+
+print(list(db.laureates.aggregate(pipeline)))
+
+pipeline = [
+    {"$match": {"gender": {"$ne": "org"}}},
+    {"$project": {"bornCountry": 1, "prizes.affiliations.country": 1}},
+    {"$unwind": "$prizes"},
+    {"$addFields": {"bornCountryInAffiliations": {"$in": ["$bornCountry", "$prizes.affiliations.country"]}}},
+    {"$match": {"bornCountryInAffiliations": False}},
+    {"$count": "awardedElsewhere"},
+]
+
+# Construct the additional filter stage
+added_stage = {"$match": {"prizes.affiliations.country": {"$in": db.laureates.distinct("prizes.affiliations.country")}}}
+
+# Insert this stage into the pipeline
+pipeline.insert(3, added_stage)
+print(list(db.laureates.aggregate(pipeline)))
+
