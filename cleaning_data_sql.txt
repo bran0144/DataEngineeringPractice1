@@ -382,3 +382,263 @@ SELECT
 	FORMAT(CAST(entry_date AS DATE), 'dd/MM/yyyy') AS entry_date
 from pilots
 
+Out of range data and inaccurate data
+
+Outisde of expected range of valid data
+To find out of range data:
+SELECT * FROM series
+WHERE rating NOT BETWEEN 0 AND 10
+
+Or we can do it this way:
+SELECT * FROM series
+WHERE rating < 0 OR rating > 10
+
+To exclude bad values:
+SELECT * FROM series
+WHERE rating >= 0 AND rating <= 10
+
+Inaccurate data
+when two or more values are contradictory
+
+to detect:
+SELECT series.id, series.name, series.premiered, episodes.episode_id, episodes.name, episodes.airdate
+FROM series
+INNER JOIN episodes ON series.id = episodes.series_id
+WHERE episodes.airdate < series.premiered
+
+To exclude:
+SELECT series.id, series.name, series.premiered, episodes.episode_id, episodes.name, episodes.airdate
+FROM series
+INNER JOIN episodes ON series.id = episodes.series_id
+WHERE episodes.airdate >= series.premiered
+
+Exercises:
+
+SELECT * FROM series
+-- Detect the out of range values
+WHERE num_ratings < 0 OR num_ratings > 5000
+
+SELECT * FROM series
+-- Exclude the out of range values
+WHERE num_ratings >= 0 AND num_ratings <= 5000
+
+SELECT * FROM series
+-- Detect series for adults
+WHERE is_adult = 1
+-- Detect series with the minimum age smaller than 18
+AND min_age < 18
+
+SELECT * FROM series
+-- Filter series for adults
+WHERE is_adult = 1
+-- Exclude series with the minimum age greater or equals to 18
+AND min_age >= 18
+
+Converting data with different data types:
+SELECT * FROM series
+WHERE CAST(rating as FLOAT) BETWEEN 0 AND 10
+or you can use:
+SELECT * FROM series
+WHERE CONVERT(FLOAT, rating) BETWEEN 0 AND 10
+to convert and calculate AVG:
+SELECT AVG(CONVERT(FLOAT, rating)) AS rating_casted
+FROM series
+WHERE CONVERT(FLOAT, rating) BETWEEN 0 AND 10
+
+Exercises:
+
+-- Use CAST() to convert the num_ratings column
+SELECT AVG(CAST(num_ratings as INTEGER))
+FROM series
+-- Use CAST() to convert the num_ratings column
+WHERE CAST(num_ratings as INTEGER) BETWEEN 0 AND 5000
+
+-- Use CONVERT() to convert the num_ratings column
+SELECT AVG(CONVERT(INT, num_ratings))
+FROM series
+-- Use CONVERT() to convert the num_ratings column
+WHERE CONVERT(INT, num_ratings) BETWEEN 0 AND 5000
+
+Pattern matching
+
+Can use LIKE (instead of regex)
+Regex requires installing extensions
+% - wildcard                    WHERE contact_number LIKE '555-%'
+_ - any single char             WHERE contact_number LIKE '___-___-____'
+[] - any single char within range   WHERE contact_number LIKE '[2-9][0-9][0-9]-'
+[^] - any single char not within range  WHERE contact_number LIKE '[^2-9]' 
+
+SELECT name, contact_number
+FROM series
+WHERE contact_number LIKE ‘555%’
+
+
+SELECT name, contact_number
+FROM series
+WHERE contact_number NOT LIKE ‘555%’
+
+SELECT name, contact_number
+FROM series
+WHERE contact_number LIKE ‘[2-9][0-9][0-9]-[2-9][0-9][0-9]-[0-9][0-9][0-9][0-9]’
+
+Exercises:
+
+SELECT 
+name,
+    -- URL of the official site
+official_site
+FROM series
+-- Get the URLs that don't match the pattern
+WHERE official_site NOT LIKE
+-- Write the pattern
+‘www.%'
+
+SELECT 
+name, 
+    -- Contact number
+    contact_number
+FROM series
+-- Get the numbers that don't match the pattern
+WHERE contact_number NOT LIKE
+-- Write the pattern
+‘555-___-____’
+
+Combining data from one column into another (say first and last name)
+
+SELECT vendor_name, vendor_surname, CONCAT(vendor_name, ‘ ‘, vendor_surname) AS full_name
+FROM vendors
+
+CONCAT ignores NULL values (will print the other value and leave null blank)
+ + operator
+
+SELECT vendor_name, vendor_surname, vendor_name + ‘ ‘ + vendor_surname AS full_name
+FROM vendors
+
+SELECT vendor_name, vendor_surname, vendor_name +  ISNULL( ‘ ‘ + vendor_surname + ‘ ‘) AS full_name
+FROM vendors
+
+Combining dates using DATEFROMPARTS (available since 2012)
+SELECT product_name, units,
+DATEFROMPARTS(year_of_sale, month_of_sale, day_of_sale) AS complete_date
+FROM paper_shop_daily_sales
+
+Exercises:
+
+SELECT 
+client_name,
+client_surname,
+    -- Concatenate city with state
+    city + ', ' + state AS city_state
+FROM clients
+
+
+SELECT 
+client_name,
+client_surname,
+    -- Consider the NULL values
+ISNULL(city, '') + ISNULL(', ' + state, '') AS city_state
+FROM clients
+
+SELECT 
+client_name,
+client_surname,
+    -- Use the function to concatenate the city and the state
+CONCAT(
+city,
+CASE WHEN state IS NULL THEN '' 
+ELSE CONCAT(', ', state) END) AS city_state
+FROM clients
+
+SELECT 
+product_name,
+units,
+    -- Use the function to concatenate the different parts of the date
+DATEFROMPARTS(
+      year_of_sale, 
+      month_of_sale, 
+      day_of_sale) AS complete_date
+FROM paper_shop_daily_sales
+
+Splitting data from one column into multiple columns
+
+USING SUBSTRING and CHARINDEX
+SUBSTRING (string, start, length)
+CHARINDEX(substring, string [,start])
+
+SELECT SUBSTRING(‘notebooks-150’, 1, CHARINDEX(’-‘, ‘notebooks-150’ -1) AS product_name
+
+
+SELECT CAST(
+SUBSTRING(‘notebooks-150’, 1, CHARINDEX(’-‘, ‘notebooks-150’  + 1, LEN(‘notebooks-150’)) AS INT) units
+
+Using LEFT, RIGHT, REVERSE
+LEFT (string, numberofchars) gets a number of chars from the left of the string
+RIGHT (string, numberofchars) gets a number of chars from the right of the string
+
+REVERSE reverses a string
+
+SELECT
+LEFT(‘notebooks-150’, CHARINDEX(‘-‘, ‘notebooks-150’) - 1) AS product_name
+RIGHT(‘notebooks-150’, CHARINDEX(‘-‘, REVERSE(‘notebooks-150’)) -1 AS units
+
+
+Exercises:
+
+SELECT 
+client_name,
+client_surname,
+    -- Extract the name of the city
+SUBSTRING(city_state, 1, CHARINDEX(', ', city_state) - 1) AS city,
+    -- Extract the name of the state
+    SUBSTRING(city_state, CHARINDEX(', ', city_state) + 1, LEN(city_state)) AS state
+FROM clients_split
+
+
+SELECT
+client_name,
+client_surname,
+    -- Extract the name of the city
+LEFT(city_state, CHARINDEX(', ', city_state) - 1) AS city,
+    -- Extract the name of the state
+    RIGHT(city_state, CHARINDEX(' ,', REVERSE(city_state)) - 1) AS state
+FROM clients_split
+
+
+Transforming rows into a column and vice versa
+
+Using PIVOT - turns the unique values from one columns into multiple columns
+Must use an aggregate function
+
+SELECT year_of_sale, notebooks, pencils, crayons
+FROM (SELECT year_of_sale, 
+SUBSTRING(product_name_units, 1, CHARINDEX(‘-‘, product_name_units) -1) AS product_name
+CAST(SUBSTRING(produce_name_units, CHARINDEX(‘-‘, product_name_units) +1 LEN(product_name_units)) AS INT) AS units
+FROM paper_shop_monthly_sales) AS sales
+PIVOT(SUM(units))
+FOR product_name IN (notebooks, pencils, crayons))
+AS paper_shop_pivot
+
+UNPIVOT turns columns into rows
+
+SELECT * FROM pivot_sales
+UNPIVOT(units FOR product_name IN (notebooks, pencils, crayons)
+AS unpvt
+
+FROM
+   (SELECT 
+SUBSTRING(product_name_units, 1, charindex('-', product_name_units)-1) product_name, 
+CAST(SUBSTRING(product_name_units, charindex('-', product_name_units)+1, len(product_name_units)) AS INT) units, 
+year_of_sale
+FROM paper_shop_monthly_sales) sales
+-- Sum the units for column that contains the values that will be column headers
+PIVOT (SUM(units) FOR product_name IN (notebooks, pencils, crayons))
+-- Give the alias name
+AS paper_shop_pivot
+
+SELECT * FROM pivot_sales
+-- Use the operator to convert columns into rows
+UNPIVOT
+-- The resulting column that will contain the turned columns into rows
+(units FOR product_name IN (notebooks, pencils, crayons))
+-- Give the alias name
+AS unpivot_sales
